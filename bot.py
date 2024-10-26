@@ -90,18 +90,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Основной запуск бота с задачами по времени
 async def main():
-    # Создание и настройка приложения и JobQueue
     app = Application.builder().token(TG_BOT_TOKEN).build()
+
+    # Добавление обработчика команд
     app.add_handler(CommandHandler("start", start))
 
-    # Настройка задач по времени
+    # Настройка JobQueue для регулярных задач
     job_queue = app.job_queue
-    job_queue.run_daily(send_crypto_update, time(hour=9, minute=0, second=0))    # 9:00 UTC
-    job_queue.run_daily(send_crypto_update, time(hour=19, minute=00, second=0))  # 18:30 UTC
 
-    # Запуск бота на постоянной основе
+    # Задачи по времени
+    job_queue.run_daily(send_crypto_update, time(hour=9, minute=0, second=0))
+    job_queue.run_daily(send_crypto_update, time(hour=19, minute=00, second=0))
+
     await app.run_polling()
 
-# Запуск основного кода
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(main())
+    asyncio.run(main())
