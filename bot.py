@@ -6,10 +6,8 @@ import json
 import os
 import nest_asyncio
 import asyncio
-import keep_alive
 
-# Запуск сервера для поддержки активности
-keep_alive.keep_alive()
+
 
 # Применение патча для работы с уже запущенным циклом событий
 nest_asyncio.apply()
