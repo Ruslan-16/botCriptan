@@ -14,7 +14,7 @@ nest_asyncio.apply()
 # Переменные окружения
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL для вебхука, например https://yourproject.onrender.com/webhook
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL для вебхука, например https://yourproject.onrender.com
 USERS_FILE = "users.json"
 
 # Flask-приложение для обработки вебхуков
@@ -80,7 +80,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user(chat_id)
 
 # Основная функция бота с вебхуком
-# Основная функция бота с вебхуком
 async def main():
     # Инициализация бота и настройка обработчиков
     bot_app = Application.builder().token(TG_BOT_TOKEN).build()
@@ -100,3 +99,14 @@ async def main():
     await bot_app.start()         # Запуск
     await bot_app.updater.start_polling()  # Запуск обновлений
 
+# Flask endpoint для Telegram webhook
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.get_json()
+    bot_app.update_queue.put_nowait(data)
+    return "ok", 200
+
+# Запуск бота с Flask
+if __name__ == "__main__":
+    asyncio.run(main())
+    app.run(host="0.0.0.0", port=5000)
