@@ -80,8 +80,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     add_user(chat_id)
 
 # Основная функция бота с вебхуком
+# Основная функция бота с вебхуком
 async def main():
-    global bot_app
+    # Инициализация бота и настройка обработчиков
     bot_app = Application.builder().token(TG_BOT_TOKEN).build()
     bot_app.add_handler(CommandHandler("start", start))
 
@@ -91,22 +92,11 @@ async def main():
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
     # Установка вебхука
+    await bot_app.initialize()    # Инициализация перед стартом
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     print("Webhook установлен!")
 
-    # Ожидание завершения
-    await bot_app.start()
-    await bot_app.updater.stop()  # Удалить polling
+    # Запуск бота
+    await bot_app.start()         # Запуск
+    await bot_app.updater.start_polling()  # Запуск обновлений
 
-# Flask endpoint для Telegram webhook
-@app.route('/webhook', methods=['POST'])
-async def webhook():
-    data = request.get_json()
-    update = Update.de_json(data, bot_app.bot)
-    await bot_app.process_update(update)
-    return "ok", 200
-
-# Запуск бота с Flask
-if __name__ == "__main__":
-    asyncio.run(main())
-    app.run(host="0.0.0.0", port=5000)
