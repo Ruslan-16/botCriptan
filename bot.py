@@ -14,7 +14,7 @@ nest_asyncio.apply()
 # Переменные окружения
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL для вебхука, например https://yourproject.onrender.com
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL для вебхука, например https://yourproject.onrender.com/webhook
 USERS_FILE = "users.json"
 
 # Flask-приложение для обработки вебхуков
@@ -91,7 +91,7 @@ async def main():
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
     # Установка вебхука
-    await bot_app.bot.set_webhook(WEBHOOK_URL)
+    await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     print("Webhook установлен!")
 
     # Ожидание завершения
