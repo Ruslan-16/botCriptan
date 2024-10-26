@@ -6,28 +6,31 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
 import nest_asyncio
+from flask import Flask, request
 
-# Патч для работы с уже запущенным циклом событий
+# Применение патча для работы с уже запущенным циклом событий
 nest_asyncio.apply()
 
-# Переменные окружения для токенов
+# Переменные окружения
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL для вебхука, например https://yourproject.onrender.com
 USERS_FILE = "users.json"
 
-# Загрузка списка пользователей из файла
+# Flask-приложение для обработки вебхуков
+app = Flask(__name__)
+
+# Загрузка и сохранение пользователей
 def load_users():
     if os.path.exists(USERS_FILE):
         with open(USERS_FILE, "r") as f:
             return json.load(f)
     return []
 
-# Сохранение списка пользователей в файл
 def save_users(users):
     with open(USERS_FILE, "w") as f:
         json.dump(users, f)
 
-# Добавление нового пользователя в список
 def add_user(chat_id):
     users = load_users()
     if chat_id not in users:
@@ -38,10 +41,10 @@ def add_user(chat_id):
 def get_crypto_data():
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
-    watchlist_symbols = ["BTC", "ETH", "ADA", "PEPE", "SOL", "POL", "FLOKI", "SEI", "SUI", "AVAX"]
+    watchlist_symbols = ["BTC", "ETH", "ADA", "PEPE", "SOL"]
     symbol_param = ",".join(watchlist_symbols)
-    params = {"symbol": symbol_param, "convert": "USD"}
 
+    params = {"symbol": symbol_param, "convert": "USD"}
     response = requests.get(url, headers=headers, params=params)
     if response.status_code == 200:
         data = response.json()["data"]
@@ -50,12 +53,12 @@ def get_crypto_data():
             if symbol in data:
                 crypto = data[symbol]
                 price = crypto["quote"]["USD"]["price"]
-                message += f"{crypto['name']} ({crypto['symbol']}): ${price:.5f}\n"
+                message += f"{crypto['name']} ({crypto['symbol']}): ${price:.2f}\n"
         return message
     else:
         return f"Ошибка при запросе данных: {response.status_code}"
 
-# Функция для отправки сообщений всем пользователям
+# Отправка сообщений всем пользователям
 async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
     message = get_crypto_data()
     users = load_users()
@@ -73,20 +76,36 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
 # Обработчик команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    await update.message.reply_text("Привет! Вы подписаны на рассылку актуальных цен на криптовалюту в 9:00 и 19:00 ежедневно.")
+    await update.message.reply_text("Привет! Вы подписаны на рассылку криптовалют в 9:00 и 19:00.")
     add_user(chat_id)
 
-# Основная функция запуска
+# Основная функция бота с вебхуком
 async def main():
-    app = Application.builder().token(TG_BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
+    # Инициализация бота и настройка обработчиков
+    bot_app = Application.builder().token(TG_BOT_TOKEN).build()
+    bot_app.add_handler(CommandHandler("start", start))
 
-    # Настройка задач JobQueue для регулярных сообщений
-    job_queue = app.job_queue
-    job_queue.run_daily(send_crypto_update, time(hour=9, minute=0, second=0))
-    job_queue.run_daily(send_crypto_update, time(hour=19, minute=0, second=0))
+    # Настройка задач
+    job_queue = bot_app.job_queue
+    job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
-    await app.run_polling()
+    # Установка вебхука
+    await bot_app.bot.set_webhook(WEBHOOK_URL)
+    print("Webhook установлен!")
 
+    # Ожидание завершения
+    await bot_app.start()
+    await bot_app.updater.start_polling()
+
+# Flask endpoint для Telegram webhook
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.get_json()
+    bot_app.update_queue.put_nowait(data)
+    return "ok", 200
+
+# Запуск бота с Flask
 if __name__ == "__main__":
     asyncio.run(main())
+    app.run(host="0.0.0.0", port=5000)
