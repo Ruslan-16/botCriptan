@@ -15,9 +15,9 @@ app = Flask(__name__)
 nest_asyncio.apply()
 
 # Переменные окружения
-TG_BOT_TOKEN = "7602913247:AAFFy0De4_DSBg_c0V_wiK1TECMtAgMZJA8"
-CMC_API_KEY = "c923b3dc-cd07-4216-8edc-9d73beb665cc"
-WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Rende
+TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
+CMC_API_KEY = os.getenv("CMC_API_KEY")
+WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Render
 
 # Загрузка пользователей
 def load_users():
@@ -97,8 +97,8 @@ async def main():
     # Задание на отправку обновлений дважды в день
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
-    job_queue.run_daily(send_crypto_update, time(hour=15, minute=45))
-    job_queue.run_daily(send_crypto_update, time(hour=15, minute=50))
+    job_queue.run_daily(send_crypto_update, time(hour=15, minute=55))
+
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     print("Webhook set!")
