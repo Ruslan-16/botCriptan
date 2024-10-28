@@ -5,19 +5,22 @@ from datetime import datetime, time
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import nest_asyncio
-from flask import Flask, request
 import asyncio
+from flask import Flask, request
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
 
-# Initialize Flask app and allow async compatibility
+# Initialize Flask and apply nest_asyncio for compatibility
 app = Flask(__name__)
-app.debug = True
+app.debug = True  # Enable debugging mode
 nest_asyncio.apply()
 
+# Environment variables
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
-WEBHOOK_URL = "https://botcriptan.onrender.com"
+WEBHOOK_URL = "https://botcriptan.onrender.com"  # Replace with your Render URL
 
-# User data functions
+# Load and save user functions
 def load_users():
     if os.path.exists("users.json"):
         with open("users.json", "r") as f:
@@ -34,7 +37,7 @@ def add_user(chat_id):
         users.append(chat_id)
         save_users(users)
 
-# Fetch crypto data
+# Fetch cryptocurrency data
 def get_crypto_data():
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
@@ -44,7 +47,7 @@ def get_crypto_data():
 
     if response.status_code == 200:
         data = response.json()["data"]
-        message = f"🗓️ Crypto Data on {datetime.now().strftime('%Y-%m-%d')}:\n"
+        message = f"🗓️ Data on {datetime.now().strftime('%Y-%m-%d')}:\n"
         for symbol in symbols:
             if symbol in data:
                 price = data[symbol]["quote"]["USD"]["price"]
@@ -53,7 +56,7 @@ def get_crypto_data():
     else:
         return f"Error fetching data: {response.status_code}"
 
-# Send crypto updates to users
+# Send updates to users
 async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
     message = get_crypto_data()
     users = load_users()
@@ -66,16 +69,16 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
                 users.remove(chat_id)
                 save_users(users)
 
-# Handle /start command
+# Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    await update.message.reply_text("You've subscribed to daily crypto updates.")
+    await update.message.reply_text("You're subscribed to daily crypto updates.")
     add_user(chat_id)
 
-# Initialize Telegram bot
+# Create bot application globally
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
 
-# Webhook handler for Telegram
+# Flask endpoint for Telegram webhook
 @app.route('/webhook', methods=['POST'])
 async def webhook():
     data = request.get_json()
@@ -84,22 +87,32 @@ async def webhook():
         await bot_app.update_queue.put(update)
         return "ok", 200
     except Exception as e:
-        print(f"Webhook handling error: {e}")
+        print(f"Webhook processing error: {e}")
         return "Error", 500
 
-# Main bot function with webhook setup
+# Main bot initialization and webhook setup
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
+
+    # Schedule daily updates
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
+    # Set webhook
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-    print("Webhook set up successfully!")
+    print("Webhook set!")
 
     await bot_app.start()
 
+# Run both the bot and Flask app with Hypercorn for async compatibility
+async def run_flask():
+    config = Config()
+    config.bind = ["0.0.0.0:5000"]
+    await serve(app, config)
+
+# Start both Flask and Telegram bot
 if __name__ == "__main__":
-    # Run both the bot and Flask app in parallel
-    asyncio.run(asyncio.gather(main(), app.run_task(host="0.0.0.0", port=5000)))
+    nest_asyncio.apply()
+    asyncio.run(asyncio.gather(main(), run_flask()))
