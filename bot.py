@@ -16,7 +16,7 @@ nest_asyncio.apply()
 # Переменные окружения
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL для вебхука, например https://yourproject.onrender.com
+WEBHOOK_URL = os.getenv("https://yourapp.onrender.com")  # URL для вебхука, например https://yourproject.onrender.com
 USERS_FILE = "users.json"
 
 # Flask-приложение для обработки вебхуков
