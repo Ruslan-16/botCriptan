@@ -10,17 +10,16 @@ from flask import Flask, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
-# Initialize Flask and apply nest_asyncio for compatibility
+# Инициализация Flask
 app = Flask(__name__)
-app.debug = True  # Enable debugging mode
 nest_asyncio.apply()
 
-# Environment variables
+# Переменные окружения
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
-WEBHOOK_URL = "https://botcriptan.onrender.com"  # Replace with your Render URL
+WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Render
 
-# Load and save user functions
+# Загрузка пользователей
 def load_users():
     if os.path.exists("users.json"):
         with open("users.json", "r") as f:
@@ -37,7 +36,7 @@ def add_user(chat_id):
         users.append(chat_id)
         save_users(users)
 
-# Fetch cryptocurrency data
+# Получение данных о криптовалютах
 def get_crypto_data():
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
@@ -56,7 +55,7 @@ def get_crypto_data():
     else:
         return f"Error fetching data: {response.status_code}"
 
-# Send updates to users
+# Отправка обновлений пользователям
 async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
     message = get_crypto_data()
     users = load_users()
@@ -69,16 +68,17 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
                 users.remove(chat_id)
                 save_users(users)
 
-# Start command
+# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await update.message.reply_text("You're subscribed to daily crypto updates.")
     add_user(chat_id)
+    print("Received /start command")
 
-# Create bot application globally
+# Создание бота
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
 
-# Flask endpoint for Telegram webhook
+# Вебхук Telegram
 @app.route('/webhook', methods=['POST'])
 async def webhook():
     data = request.get_json()
@@ -90,29 +90,27 @@ async def webhook():
         print(f"Webhook processing error: {e}")
         return "Error", 500
 
-# Main bot initialization and webhook setup
+# Основная функция инициализации
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
 
-    # Schedule daily updates
+    # Задание на отправку обновлений дважды в день
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
-    # Set webhook
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     print("Webhook set!")
-
     await bot_app.start()
 
-# Run both the bot and Flask app with Hypercorn for async compatibility
+# Запуск Flask и бота с Hypercorn
 async def run_flask():
     config = Config()
-    config.bind = ["0.0.0.0:5000"]
+    config.bind = ["0.0.0.0:10000"]  # Render открывает порт 10000
     await serve(app, config)
 
-# Start both Flask and Telegram bot
+# Запуск Flask и бота
 if __name__ == "__main__":
     nest_asyncio.apply()
     asyncio.run(asyncio.gather(main(), run_flask()))
