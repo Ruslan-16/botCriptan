@@ -3,7 +3,7 @@ import json
 import requests
 from datetime import datetime, time
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes
 import nest_asyncio
 import asyncio
 from flask import Flask, request
@@ -18,10 +18,6 @@ nest_asyncio.apply()
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
 WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Render
-
-# Проверка токенов
-print(f"TG_BOT_TOKEN: {TG_BOT_TOKEN}")
-print(f"CMC_API_KEY: {CMC_API_KEY}")
 
 
 # Загрузка пользователей
@@ -78,18 +74,19 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
                 save_users(users)
 
 
-# Тестовая функция для проверки периодической отправки сообщений
-async def send_test_message(context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=context.job.chat_id, text="Test message from scheduled job")
-
-
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    await update.message.reply_text(
-        "Вы подписались на ежедневную рассылку анализа цен на  Криптовалюты в 9:00 и 19:00.")
+    await update.message.reply_text("Вы подписались на ежедневную рассылку анализа цен на Криптовалюты в 9:00 и 19:00.")
     add_user(chat_id)
     print("Received /start command")
+
+
+# Функция для тестового сообщения
+async def send_test_message(context: ContextTypes.DEFAULT_TYPE):
+    users = load_users()
+    for chat_id in users:
+        await context.bot.send_message(chat_id=chat_id, text="Тестовое сообщение из запланированного задания")
 
 
 # Создание бота
@@ -113,14 +110,13 @@ async def webhook():
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
 
-    # Планировщик для ежедневных обновлений
+    # Задание на отправку обновлений дважды в день
     job_queue = bot_app.job_queue
-    print("Scheduling daily updates...")
     job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=15, minute=55))
 
-    # Тестовая задача для отладки
-    job_queue.run_repeating(send_test_message, interval=60, first=10)
+    # Расписание для тестового сообщения
+    job_queue.run_daily(send_test_message, time(hour=0, minute=1))  # Установите любое удобное время
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
