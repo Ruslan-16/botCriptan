@@ -3,7 +3,7 @@ import json
 import requests
 from datetime import datetime, time
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 import nest_asyncio
 import asyncio
 from flask import Flask, request
@@ -19,6 +19,11 @@ TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
 WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Render
 
+# Проверка токенов
+print(f"TG_BOT_TOKEN: {TG_BOT_TOKEN}")
+print(f"CMC_API_KEY: {CMC_API_KEY}")
+
+
 # Загрузка пользователей
 def load_users():
     if os.path.exists("users.json"):
@@ -26,15 +31,18 @@ def load_users():
             return json.load(f)
     return []
 
+
 def save_users(users):
     with open("users.json", "w") as f:
         json.dump(users, f)
+
 
 def add_user(chat_id):
     users = load_users()
     if chat_id not in users:
         users.append(chat_id)
         save_users(users)
+
 
 # Получение данных о криптовалютах
 def get_crypto_data():
@@ -55,6 +63,7 @@ def get_crypto_data():
     else:
         return f"Error fetching data: {response.status_code}"
 
+
 # Отправка обновлений пользователям
 async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
     message = get_crypto_data()
@@ -68,15 +77,24 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
                 users.remove(chat_id)
                 save_users(users)
 
+
+# Тестовая функция для проверки периодической отправки сообщений
+async def send_test_message(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=context.job.chat_id, text="Test message from scheduled job")
+
+
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    await update.message.reply_text("Вы подписались на ежедневную рассылку анализа цен на  Криптовалюты в 9:00 и 19:00.")
+    await update.message.reply_text(
+        "Вы подписались на ежедневную рассылку анализа цен на  Криптовалюты в 9:00 и 19:00.")
     add_user(chat_id)
     print("Received /start command")
 
+
 # Создание бота
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
+
 
 # Вебхук Telegram
 @app.route('/webhook', methods=['POST'])
@@ -90,25 +108,32 @@ async def webhook():
         print(f"Webhook processing error: {e}")
         return "Error", 500
 
+
 # Основная функция инициализации
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
 
-    # Задание на отправку обновлений дважды в день
+    # Планировщик для ежедневных обновлений
     job_queue = bot_app.job_queue
+    print("Scheduling daily updates...")
     job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=15, minute=55))
+
+    # Тестовая задача для отладки
+    job_queue.run_repeating(send_test_message, interval=60, first=10)
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     print("Webhook set!")
     await bot_app.start()
 
+
 # Запуск Flask и бота с Hypercorn
 async def run_flask():
     config = Config()
     config.bind = ["0.0.0.0:10000"]  # Render открывает порт 10000
     await serve(app, config)
+
 
 # Запуск Flask и бота
 if __name__ == "__main__":
