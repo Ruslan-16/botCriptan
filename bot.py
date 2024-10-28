@@ -116,7 +116,7 @@ async def main():
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=00))
 
     # Расписание для тестового сообщения
-    job_queue.run_daily(send_test_message, time(hour=16, minute=40))  # Установите любое удобное время
+    job_queue.run_daily(send_test_message, time(hour=4, minute=50))  # Установите любое удобное время
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
