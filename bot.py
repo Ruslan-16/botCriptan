@@ -7,7 +7,9 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
 import nest_asyncio
 from flask import Flask, request
+from background import keep_alive
 
+keep_alive()
 # Применение патча для работы с уже запущенным циклом событий
 nest_asyncio.apply()
 
@@ -109,4 +111,4 @@ def webhook():
 # Запуск бота с Flask
 if __name__ == "__main__":
     asyncio.run(main())
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=80)
