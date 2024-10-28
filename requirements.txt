@@ -1,6 +1,6 @@
 python-telegram-bot[job-queue]
 requests
-flask
+Flask[async]
 nest_asyncio
 hypercorn
 
