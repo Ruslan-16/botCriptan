@@ -15,7 +15,7 @@ nest_asyncio.apply()
 # Load environment variables
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
-WEBHOOK_URL = "https://yourapp.onrender.com"
+WEBHOOK_URL = "https://botcriptan.onrender.com"
 USERS_FILE = "users.json"
 
 # Load and save user functions
