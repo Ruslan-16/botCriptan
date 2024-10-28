@@ -71,7 +71,7 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    await update.message.reply_text("You're subscribed to daily crypto updates.")
+    await update.message.reply_text("Вы подписались на ежедневную рассылку анализа цен на  Криптовалюты в 9:00 и 19:00.")
     add_user(chat_id)
     print("Received /start command")
 
@@ -97,7 +97,7 @@ async def main():
     # Задание на отправку обновлений дважды в день
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
-    job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=15, minute=38))
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
