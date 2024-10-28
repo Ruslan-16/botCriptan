@@ -97,7 +97,7 @@ async def main():
     # Задание на отправку обновлений дважды в день
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
-    job_queue.run_daily(send_crypto_update, time(hour=15, minute=38))
+    job_queue.run_daily(send_crypto_update, time(hour=15, minute=45))
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
