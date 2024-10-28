@@ -1,3 +1,4 @@
+from flask import Flask, request
 import os
 import json
 import requests
@@ -6,7 +7,6 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
 import nest_asyncio
-from flask import Flask, request
 
 # Initialize Flask and apply nest_asyncio for compatibility
 app = Flask(__name__)
@@ -15,8 +15,13 @@ nest_asyncio.apply()
 # Load environment variables
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
-WEBHOOK_URL = "https://botcriptan.onrender.com/webhook"
+WEBHOOK_URL = "https://botcriptan.onrender.com"
 USERS_FILE = "users.json"
+
+# Define root endpoint to check server status
+@app.route('/')
+def home():
+    return "I'm alive"
 
 # Load and save user functions
 def load_users():
@@ -94,7 +99,7 @@ async def main():
 
     # Set webhook
     await bot_app.initialize()
-    await bot_app.bot.set_webhook(WEBHOOK_URL)
+    await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
 
 # Run the bot and Flask server
