@@ -77,10 +77,10 @@ bot_app = Application.builder().token(TG_BOT_TOKEN).build()
 
 # Flask endpoint for Telegram webhook
 @app.route('/webhook', methods=['POST'])
-async def webhook():
+def webhook():
     data = request.get_json()
     update = Update.de_json(data, bot_app.bot)
-    await bot_app.update_queue.put(update)
+    asyncio.run(bot_app.update_queue.put(update))  # Use asyncio.run for sync handling
     return "ok", 200
 
 # Main bot initialization and webhook setup
