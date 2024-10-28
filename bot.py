@@ -15,7 +15,7 @@ nest_asyncio.apply()
 # Load environment variables
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
-WEBHOOK_URL = "https://botcriptan.onrender.com"
+WEBHOOK_URL = "https://botcriptan.onrender.com/webhook"
 USERS_FILE = "users.json"
 
 # Load and save user functions
@@ -77,10 +77,10 @@ bot_app = Application.builder().token(TG_BOT_TOKEN).build()
 
 # Flask endpoint for Telegram webhook
 @app.route('/webhook', methods=['POST'])
-def webhook():
+async def webhook():
     data = request.get_json()
     update = Update.de_json(data, bot_app.bot)
-    asyncio.run(bot_app.update_queue.put(update))  # Use asyncio.run for sync handling
+    await bot_app.update_queue.put(update)
     return "ok", 200
 
 # Main bot initialization and webhook setup
@@ -94,7 +94,7 @@ async def main():
 
     # Set webhook
     await bot_app.initialize()
-    await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+    await bot_app.bot.set_webhook(WEBHOOK_URL)
     await bot_app.start()
 
 # Run the bot and Flask server
