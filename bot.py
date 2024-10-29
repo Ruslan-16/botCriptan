@@ -39,6 +39,10 @@ def add_user(chat_id):
         users.append(chat_id)
         save_users(users)
 
+def get_user_count():
+    users = load_users()  # Загрузка списка chat_id
+    return len(users)  # Возвращает количество chat_id в списке
+
 
 # Получение данных о криптовалютах
 def get_crypto_data():
@@ -136,6 +140,12 @@ async def main():
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Бот отвечает только на команду /start.")
+
+async def count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_count = get_user_count()
+    await update.message.reply_text(f"В вашем боте {user_count} подписчиков.")
+
+bot_app.add_handler(CommandHandler("count", count))
 
 
 # Запуск Flask и бота с Hypercorn
