@@ -44,7 +44,8 @@ def add_user(chat_id):
 def get_crypto_data():
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
-    symbols = ["BTC", "ETH", "ADA", "PEPE", "SOL"]
+    symbols = ["BTC", "ETH", "ADA", "PEPE", "SOL", "SUI", 'TON', 'FET', 'APT', 'AVAX', 'FLOKI', 'TWT', 'ALGO',
+               'CAKE', '1INCH', 'MANA', 'FLOW', 'EGLD', 'ARB', 'DYDX', 'APEX', 'CRV', 'ATOM', 'POL', 'OP', 'SEI']
     params = {"symbol": ",".join(symbols), "convert": "USD"}
     response = requests.get(url, headers=headers, params=params)
 
