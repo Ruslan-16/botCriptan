@@ -50,11 +50,11 @@ def get_crypto_data():
 
     if response.status_code == 200:
         data = response.json()["data"]
-        message = f"🗓️ Data on {datetime.now().strftime('%Y-%m-%d')}:\n"
+        message = f"🗓️ Актуальные данные на {datetime.now().strftime('%Y-%m-%d')}:\n"
         for symbol in symbols:
             if symbol in data:
                 price = data[symbol]["quote"]["USD"]["price"]
-                message += f"{symbol}: ${price:.2f}\n"
+                message += f"{symbol}: ${price:.5f}\n"
         return message
     else:
         return f"Error fetching data: {response.status_code}"
@@ -87,12 +87,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Received /start command")
 
 
-# Функция для тестового сообщения
-async def send_test_message(context: ContextTypes.DEFAULT_TYPE):
-    users = load_users()
-    for chat_id in users:
-        await context.bot.send_message(chat_id=chat_id, text="Тестовое сообщение из запланированного задания")
-        print(f"Тестовое сообщение отправлено пользователю {chat_id}")
 
 # Создание бота
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
