@@ -113,6 +113,10 @@ from datetime import timedelta
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
 
+    # Добавляем обработчик для всех текстовых сообщений, которые не являются командами
+    from telegram.ext import MessageHandler, filters
+    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
     # Задания на отправку данных по криптовалюте дважды в день
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=10, minute=0))
@@ -130,6 +134,8 @@ async def main():
     print("Webhook set!")
     await bot_app.start()
 
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Бот отвечает только на команду /start.")
 
 
 # Запуск Flask и бота с Hypercorn
