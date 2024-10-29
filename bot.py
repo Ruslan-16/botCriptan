@@ -55,7 +55,7 @@ def get_crypto_data():
         for symbol in symbols:
             if symbol in data:
                 price = data[symbol]["quote"]["USD"]["price"]
-                message += f"💰{symbol}: ${price:.5f}\n"
+                message += f"💰{symbol}: 💲{price:.5f}\n"
         return message
     else:
         return f"Error fetching data: {response.status_code}"
@@ -118,6 +118,8 @@ async def main():
     job_queue.run_daily(send_crypto_update, time(hour=10, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=10, minute=30))
     job_queue.run_daily(send_crypto_update, time(hour=11, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=11, minute=30))
+    job_queue.run_daily(send_crypto_update, time(hour=12, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
     # Одноразовое тестовое задание для проверки отправки
