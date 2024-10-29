@@ -112,21 +112,25 @@ async def webhook():
 
 
 # Основная функция инициализации
+from datetime import timedelta
+
+# Основная функция инициализации
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
 
-    # Задание на отправку обновлений дважды в день
+    # Задания на отправку данных по криптовалюте дважды в день
     job_queue = bot_app.job_queue
-    job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=10, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
-    # Расписание для тестового сообщения через минуту после запуска
-    job_queue.run_once(send_test_message, when=timedelta(minutes=1))
+    # Одноразовое тестовое задание для проверки отправки
+    job_queue.run_once(send_crypto_update, when=timedelta(minutes=1))
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     print("Webhook set!")
     await bot_app.start()
+
 
 
 # Запуск Flask и бота с Hypercorn
