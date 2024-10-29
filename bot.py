@@ -120,23 +120,20 @@ async def crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Основная функция инициализации
 async def main():
+    # Add all handlers here
     bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("crypto", crypto))  # Добавление команды /crypto
-    from telegram.ext import MessageHandler, filters
+    bot_app.add_handler(CommandHandler("crypto", crypto))
+    bot_app.add_handler(CommandHandler("count", count))
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Задания на обновления по расписанию
+    # Schedule daily update jobs
+    job_queue = bot_app.job_queue
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=10, minute=0))
-    job_queue.run_daily(send_crypto_update, time(hour=10, minute=30))
-    job_queue.run_daily(send_crypto_update, time(hour=11, minute=0))
-    job_queue.run_daily(send_crypto_update, time(hour=11, minute=30))
-    job_queue.run_daily(send_crypto_update, time(hour=12, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=17, minute=30))
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
-    # Одноразовое тестовое задание для проверки
-    job_queue.run_once(send_crypto_update, when=timedelta(minutes=1))
-
+    # Initialize bot and set webhook
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     print("Webhook set!")
@@ -148,8 +145,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_count = get_user_count()
     await update.message.reply_text(f"В вашем боте {user_count} подписчиков.")
-
-bot_app.add_handler(CommandHandler("count", count))
 
 
 # Запуск Flask и бота с Hypercorn
