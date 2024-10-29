@@ -113,15 +113,19 @@ async def webhook():
 # Основная функция инициализации
 from datetime import timedelta
 
+# Команда /crypto для запроса обновлений
+async def crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = get_crypto_data()
+    await update.message.reply_text(message)
+
 # Основная функция инициализации
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
-
-    # Добавляем обработчик для всех текстовых сообщений, которые не являются командами
+    bot_app.add_handler(CommandHandler("crypto", crypto))  # Добавление команды /crypto
     from telegram.ext import MessageHandler, filters
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Задания на отправку данных по криптовалюте дважды в день
+    # Задания на обновления по расписанию
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=10, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=10, minute=30))
@@ -130,7 +134,7 @@ async def main():
     job_queue.run_daily(send_crypto_update, time(hour=12, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
-    # Одноразовое тестовое задание для проверки отправки
+    # Одноразовое тестовое задание для проверки
     job_queue.run_once(send_crypto_update, when=timedelta(minutes=1))
 
     await bot_app.initialize()
@@ -139,7 +143,7 @@ async def main():
     await bot_app.start()
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Бот отвечает только на команду /start.")
+    await update.message.reply_text("Доступные команды: /start для подписки, /crypto для получения данных.")
 
 async def count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_count = get_user_count()
