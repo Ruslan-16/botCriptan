@@ -9,7 +9,7 @@ import asyncio
 from flask import Flask, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
-
+from datetime import timedelta
 # Инициализация Flask
 app = Flask(__name__)
 nest_asyncio.apply()
@@ -62,13 +62,18 @@ def get_crypto_data():
 
 # Отправка обновлений пользователям
 async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
+    print("Запуск send_crypto_update...")  # Проверка запуска задания
     message = get_crypto_data()
+    if not message:
+        print("Ошибка при получении данных о криптовалюте")
+        return
     users = load_users()
-    for chat_id in users[:]:
+    for chat_id in users:
         try:
             await context.bot.send_message(chat_id=chat_id, text=message)
+            print(f"Сообщение отправлено пользователю {chat_id}")
         except Exception as e:
-            print(f"Error sending to {chat_id}: {e}")
+            print(f"Ошибка отправки для {chat_id}: {e}")
             if "bot was blocked" in str(e) or "user is deactivated" in str(e):
                 users.remove(chat_id)
                 save_users(users)
@@ -87,7 +92,7 @@ async def send_test_message(context: ContextTypes.DEFAULT_TYPE):
     users = load_users()
     for chat_id in users:
         await context.bot.send_message(chat_id=chat_id, text="Тестовое сообщение из запланированного задания")
-
+        print(f"Тестовое сообщение отправлено пользователю {chat_id}")
 
 # Создание бота
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
@@ -113,10 +118,10 @@ async def main():
     # Задание на отправку обновлений дважды в день
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
-    job_queue.run_daily(send_crypto_update, time(hour=19, minute=00))
+    job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
-    # Расписание для тестового сообщения
-    job_queue.run_daily(send_test_message, time(hour=4, minute=50))  # Установите любое удобное время
+    # Расписание для тестового сообщения через минуту после запуска
+    job_queue.run_once(send_test_message, when=timedelta(minutes=1))
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
