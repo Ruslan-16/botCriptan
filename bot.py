@@ -44,14 +44,14 @@ def add_user(chat_id):
 def get_crypto_data():
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
-    symbols = ["BTC", "ETH", "ADA", "PEPE", "SOL", "SUI", 'TON', 'FET', 'APT', 'AVAX', 'FLOKI', 'TWT', 'ALGO',
-               'CAKE', '1INCH', 'MANA', 'FLOW', 'EGLD', 'ARB', 'DYDX', 'APEX', 'CRV', 'ATOM', 'POL', 'OP', 'SEI']
+    symbols = [" 💲BTC", "💲ETH", "💲ADA", "💲PEPE", "💲SOL", "💲SUI", '💲TON', '💲FET', '💲APT', '💲AVAX', '💲FLOKI', '💲TWT', '💲ALGO',
+               '💲CAKE', '💲1INCH', '💲MANA', '💲FLOW', '💲EGLD', '💲ARB', '💲DYDX', '💲APEX', '💲CRV', '💲ATOM', '💲POL', '💲OP', '💲SEI']
     params = {"symbol": ",".join(symbols), "convert": "USD"}
     response = requests.get(url, headers=headers, params=params)
 
     if response.status_code == 200:
         data = response.json()["data"]
-        message = f"🗓️ Актуальные данные на {datetime.now().strftime('%Y-%m-%d')}:\n"
+        message = f"🗓️ 🏦 Актуальные данные на {datetime.now().strftime('%d-%m-%Y')}:\n"
         for symbol in symbols:
             if symbol in data:
                 price = data[symbol]["quote"]["USD"]["price"]
@@ -83,7 +83,7 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    await update.message.reply_text("Вы подписались на ежедневную рассылку анализа цен на Криптовалюты в 9:00 и 19:00.")
+    await update.message.reply_text("🤑 Вы подписались на ежедневную рассылку цен на Криптовалюты в 🕰️ 9:00 и 19:00.👍")
     add_user(chat_id)
     print("Received /start command")
 
@@ -116,6 +116,8 @@ async def main():
     # Задания на отправку данных по криптовалюте дважды в день
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=10, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=10, minute=30))
+    job_queue.run_daily(send_crypto_update, time(hour=11, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
     # Одноразовое тестовое задание для проверки отправки
