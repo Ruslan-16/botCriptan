@@ -15,8 +15,8 @@ app = Flask(__name__)
 nest_asyncio.apply()
 
 # Переменные окружения
-TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
-CMC_API_KEY = os.getenv("CMC_API_KEY")
+TG_BOT_TOKEN ="7602913247:AAFFy0De4_DSBg_c0V_wiK1TECMtAgMZJA8"
+CMC_API_KEY = "c923b3dc-cd07-4216-8edc-9d73beb665cc"
 WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Render
 
 
@@ -129,10 +129,10 @@ async def main():
     # Schedule daily update jobs
     job_queue = bot_app.job_queue
     job_queue = bot_app.job_queue
-    job_queue.run_daily(send_crypto_update, time(hour=6, minute=0))
-    job_queue.run_daily(send_crypto_update, time(hour=15, minute=00))
-    job_queue.run_daily(send_crypto_update, time(hour=15, minute=30))
-    job_queue.run_daily(send_crypto_update, time(hour=16, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=11, minute=30))
+    job_queue.run_daily(send_crypto_update, time(hour=12, minute=00))
+    job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
     # Initialize bot and set webhook
     await bot_app.initialize()
