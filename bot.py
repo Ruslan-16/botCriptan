@@ -6,18 +6,23 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import Update
 from flask import Flask, request
 import asyncio
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
 
 # Переменные окружения
-TG_BOT_TOKEN = "7602913247:AAFFy0De4_DSBg_c0V_wiK1TECMtAgMZJA8"
-CMC_API_KEY = "c923b3dc-cd07-4216-8edc-9d73beb665cc"
-WEBHOOK_URL = "https://213.226.112.83/webhook"
+TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
+CMC_API_KEY = os.getenv("CMC_API_KEY")
+WEBHOOK_URL = "https://your_server_ip_or_domain/webhook"
 WEBHOOK_PATH = "/webhook"
 WEBAPP_HOST = "0.0.0.0"
-WEBAPP_PORT = 8443
+WEBAPP_PORT = 8444
 
 # Инициализация бота и диспетчера
 bot = Bot(token=TG_BOT_TOKEN)
 dp = Dispatcher(bot)
+
+# Flask-приложение для вебхуков
+app = Flask(__name__)
 
 # Загрузка и сохранение пользователей
 def load_users():
@@ -79,44 +84,4 @@ async def start(message: types.Message):
     await message.reply("🤑 Вы подписались на ежедневную рассылку цен на Криптовалюты в 🕰️ 9:00 и 19:00.👍")
     add_user(chat_id)
 
-# Webhook обработчик Flask
-app = Flask(__name__)
-
-@app.route(WEBHOOK_PATH, methods=['POST'])
-async def webhook():
-    data = await request.get_json()
-    update = Update.to_object(data)
-    await dp.process_update(update)
-    return "ok", 200
-
-# Планировщик задач
-async def schedule_updates():
-    while True:
-        now = datetime.now()
-        next_run_time = now.replace(hour=9, minute=0, second=0, microsecond=0) if now.hour < 9 else now.replace(hour=19, minute=0, second=0, microsecond=0)
-        if next_run_time <= now:
-            next_run_time += timedelta(days=1) if now.hour >= 19 else timedelta(hours=10)
-        sleep_duration = (next_run_time - now).total_seconds()
-        await asyncio.sleep(sleep_duration)
-        await send_crypto_update()
-
-# Запуск вебхука и расписания
-async def on_startup():
-    await bot.set_webhook(WEBHOOK_URL)
-    asyncio.create_task(schedule_updates())
-
-async def on_shutdown():
-    await bot.delete_webhook()
-    await bot.session.close()
-
-# Основной запуск приложения
-if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(on_startup())
-
-    try:
-        app.run(host=WEBAPP_HOST, port=WEBAPP_PORT, ssl_context=('path/to/your/cert.pem', 'path/to/your/key.pem'))
-    except KeyboardInterrupt:
-        print("Бот остановлен")
-    finally:
-        loop.run_until_complete(on_shutdown())
+# Webhook обработ
