@@ -87,7 +87,7 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    await update.message.reply_text("🤑 Вы подписались на ежедневную рассылку цен на Криптовалюты в 🕰️ 9:00 и 19:00.👍")
+    await update.message.reply_text("🤑 Вы подписались на рассылку цен на Криптовалюты , нажмите введите /crypto👍")
     add_user(chat_id)
     print("Received /start command")
 
