@@ -48,18 +48,29 @@ def get_user_count():
 def get_crypto_data():
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
-    symbols = ["BTC", "ETH", "ADA", "PEPE", "SOL", "SUI", 'TON', 'FET', 'APT', 'AVAX', 'FLOKI', 'TWT', 'ALGO',
-               'CAKE', '1INCH', 'MANA', 'FLOW', 'EGLD', 'ARB', 'DYDX', 'APEX', 'CRV', 'ATOM', 'POL', 'OP', 'SEI']
+    symbols = ["BTC", "ETH", "ADA", "PEPE", "SOL", "SUI", "TON", "FET", "APT", "AVAX", "FLOKI", "TWT",
+               "ALGO", "CAKE", "1INCH", "MANA", "FLOW", "EGLD", "ARB", "DYDX", "APEX", "CRV", "ATOM", "POL", "OP",
+               "SEI"]
     params = {"symbol": ",".join(symbols), "convert": "USD"}
-    response = requests.get(url, headers=headers, params=params)
 
+    # Словарь с эмодзи для каждой криптовалюты
+    crypto_emojis = {
+        "BTC": "💰", "ETH": "⚡", "ADA": "🔷", "PEPE": "🐸", "SOL": "🌞", "SUI": "🌊",
+        "TON": "📞", "FET": "🤖", "APT": "🚀", "AVAX": "❄️", "FLOKI": "🐶", "TWT": "🔐",
+        "ALGO": "🔗", "CAKE": "🍰", "1INCH": "📏", "MANA": "🌐", "FLOW": "💧",
+        "EGLD": "👑", "ARB": "🛡️", "DYDX": "⚔️", "APEX": "🌋", "CRV": "💹", "ATOM": "🪐",
+        "POL": "🏛️", "OP": "📈", "SEI": "🌾"
+    }
+
+    response = requests.get(url, headers=headers, params=params)
     if response.status_code == 200:
         data = response.json()["data"]
-        message = f"🗓️ 🏦 Актуальные данные на {datetime.now().strftime('%d-%m-%Y')}:\n"
+        message = f"🗓️ Актуальные данные на {datetime.now().strftime('%Y-%m-%d')}:\n"
         for symbol in symbols:
             if symbol in data:
                 price = data[symbol]["quote"]["USD"]["price"]
-                message += f"💰{symbol}: 💲{price:.5f}\n"
+                emoji = crypto_emojis.get(symbol, "💸")  # Эмодзи по умолчанию, если не найдено
+                message += f"{emoji} {symbol}: ${price:.5f}\n"
         return message
     else:
         return f"Error fetching data: {response.status_code}"
@@ -130,8 +141,7 @@ async def main():
     job_queue = bot_app.job_queue
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=6, minute=0))
-    job_queue.run_daily(send_crypto_update, time(hour=15, minute=00))
-    job_queue.run_daily(send_crypto_update, time(hour=15, minute=30))
+    job_queue.run_daily(send_crypto_update, time(hour=9, minute=30))
     job_queue.run_daily(send_crypto_update, time(hour=16, minute=0))
 
     # Initialize bot and set webhook
@@ -145,7 +155,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_count = get_user_count()
-    await update.message.reply_text(f"В вашем боте {user_count} подписчиков.")
+    await update.message.reply_text(f"В боте {user_count} подписчиковс🥹.")
 
 
 # Запуск Flask и бота с Hypercorn
