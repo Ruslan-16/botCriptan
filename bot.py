@@ -130,7 +130,6 @@ async def main():
     # Schedule daily update jobs
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=6, minute=0))
-    job_queue.run_daily(send_crypto_update, time(hour=9, minute=30))
     job_queue.run_daily(send_crypto_update, time(hour=16, minute=0))
 
     # Initialize bot and set webhook
