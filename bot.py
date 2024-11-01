@@ -87,7 +87,8 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    await update.message.reply_text("🤑 Вы подписались на рассылку цен на Криптовалюты , нажмите введите /crypto👍")
+    await update.message.reply_text("🤑 Вы подписались на рассылку(в 9:00 и 19:00) цен на Криптовалюты ,"
+                                    " нажмите введите /crypto👍")
     add_user(chat_id)
     print("Received /start command")
 
@@ -127,7 +128,6 @@ async def main():
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Schedule daily update jobs
-    job_queue = bot_app.job_queue
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=6, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=9, minute=30))
