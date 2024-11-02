@@ -1,15 +1,15 @@
 import os
 import json
 import requests
-from datetime import datetime, timedelta, time
+from datetime import datetime, time
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes,MessageHandler, filters
 import nest_asyncio
 import asyncio
 from flask import Flask, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
-
+from datetime import timedelta
 # Инициализация Flask
 app = Flask(__name__)
 nest_asyncio.apply()
@@ -17,55 +17,21 @@ nest_asyncio.apply()
 # Переменные окружения
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
-YANDEX_DISK_TOKEN = os.getenv("YANDEX_DISK_TOKEN")
 WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Render
 
-# URL для работы с Яндекс.Диском
-YDB_URL = "https://cloud-api.yandex.net/v1/disk/resources"
 
-# Загрузка и сохранение данных на Яндекс.Диске
-def upload_to_yandex_disk(local_file_path, remote_file_path):
-    """Загружает файл на Яндекс.Диск."""
-    upload_url = f"{YDB_URL}/upload?path={remote_file_path}&overwrite=true"
-    headers = {'Authorization': f'OAuth {YANDEX_DISK_TOKEN}'}
-    response = requests.get(upload_url, headers=headers)
-    if response.status_code == 200:
-        upload_link = response.json().get("href")
-        with open(local_file_path, 'rb') as f:
-            upload_response = requests.put(upload_link, files={'file': f})
-        return upload_response.status_code == 201
-    else:
-        print(f"Ошибка получения ссылки для загрузки: {response.status_code}")
-        return False
-
-def download_from_yandex_disk(remote_file_path, local_file_path):
-    """Скачивает файл с Яндекс.Диска."""
-    download_url = f"{YDB_URL}/download?path={remote_file_path}"
-    headers = {'Authorization': f'OAuth {YANDEX_DISK_TOKEN}'}
-    response = requests.get(download_url, headers=headers)
-    if response.status_code == 200:
-        download_link = response.json().get("href")
-        file_response = requests.get(download_link)
-        if file_response.status_code == 200:
-            with open(local_file_path, 'wb') as f:
-                f.write(file_response.content)
-            return True
-    print(f"Ошибка при скачивании файла: {response.status_code}")
-    return False
-
+# Загрузка пользователей
 def load_users():
-    """Загружает список пользователей из файла users.json на Яндекс.Диске."""
-    download_from_yandex_disk('users.json', 'users.json')
     if os.path.exists("users.json"):
         with open("users.json", "r") as f:
             return json.load(f)
     return []
 
+
 def save_users(users):
-    """Сохраняет список пользователей в файл users.json на Яндекс.Диске."""
     with open("users.json", "w") as f:
         json.dump(users, f)
-    upload_to_yandex_disk('users.json', 'users.json')
+
 
 def add_user(chat_id):
     users = load_users()
@@ -74,125 +40,65 @@ def add_user(chat_id):
         save_users(users)
 
 def get_user_count():
-    users = load_users()
-    return len(users)
+    users = load_users()  # Загрузка списка chat_id
+    return len(users)  # Возвращает количество chat_id в списке
 
-# Функции для работы с ценами на криптовалюты
-def load_prices():
-    """Загружает исторические данные о ценах из файла prices.json на Яндекс.Диске."""
-    download_from_yandex_disk('prices.json', 'prices.json')
-    if os.path.exists("prices.json"):
-        with open("prices.json", "r") as f:
-            return json.load(f)
-    return {}
 
-def save_prices(prices):
-    """Сохраняет исторические данные о ценах в файл prices.json на Яндекс.Диске."""
-    with open("prices.json", "w") as f:
-        json.dump(prices, f)
-    upload_to_yandex_disk('prices.json', 'prices.json')
-
+# Получение данных о криптовалютах
 def get_crypto_data():
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
-    symbols = ["BTC", "ETH", "ADA", "SOL", "TON", "APT", "AVAX", "ALGO", "CAKE", "OP"]
+    symbols = ["BTC", "ETH", "ADA", "PEPE", "SOL", "SUI", 'TON', 'FET', 'APT', 'AVAX', 'FLOKI', 'TWT', 'ALGO',
+               'CAKE', '1INCH', 'MANA', 'FLOW', 'EGLD', 'ARB', 'DYDX', 'APEX', 'CRV', 'ATOM', 'POL', 'OP', 'SEI']
     params = {"symbol": ",".join(symbols), "convert": "USD"}
     response = requests.get(url, headers=headers, params=params)
 
     if response.status_code == 200:
         data = response.json()["data"]
-        return {symbol: data[symbol]["quote"]["USD"]["price"] for symbol in symbols if symbol in data}
+        message = f"🗓️ 🏦 Актуальные данные на {datetime.now().strftime('%d-%m-%Y')}:\n"
+        for symbol in symbols:
+            if symbol in data:
+                price = data[symbol]["quote"]["USD"]["price"]
+                message += f"💰{symbol}: 📈{price:.5f}\n"
+        return message
     else:
-        print(f"Ошибка получения данных: {response.status_code}")
-        return {}
+        return f"Error fetching data: {response.status_code}"
 
-def update_prices():
-    """Обновляет текущие данные и сохраняет записи для трех точек: сейчас, 12 часов назад, и 24 часа назад."""
-    current_prices = get_crypto_data()
-    if current_prices:
-        prices = load_prices()
 
-        # Сохраняем текущие данные
-        timestamp_now = datetime.now().isoformat()
-        prices["now"] = {"timestamp": timestamp_now, "data": current_prices}
-
-        # Сохраняем для 12 и 24 часов назад, если их временные метки отличаются от текущих
-        timestamp_12h = (datetime.now() - timedelta(hours=12)).isoformat()
-        timestamp_24h = (datetime.now() - timedelta(hours=24)).isoformat()
-
-        if "12h" not in prices or prices["12h"]["timestamp"] != timestamp_12h:
-            prices["12h"] = {"timestamp": timestamp_12h, "data": current_prices}
-        if "24h" not in prices or prices["24h"]["timestamp"] != timestamp_24h:
-            prices["24h"] = {"timestamp": timestamp_24h, "data": current_prices}
-
-        save_prices(prices)
-    else:
-        print("Не удалось получить текущие данные о ценах.")
-
-# Команды бота
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    await update.message.reply_text(
-        "🤑 Вы подписались на рассылку (в 9:00 и 21:00) цен на Криптовалюты. "
-        "Используйте /history для просмотра текущих и исторических цен.")
-    add_user(chat_id)
-
-async def count(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_count = get_user_count()
-    await update.message.reply_text(f"В боте {user_count} подписчиков 🙌.")
-
-async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    prices = load_prices()
-    message = f"🗓️ Актуальные данные на {datetime.now().strftime('%d-%m-%Y %H:%M')}:\n"
-
-    # Текущие данные
-    if "now" in prices:
-        message += "Текущие цены:\n"
-        for symbol, price in prices["now"]["data"].items():
-            message += f"💰{symbol}: {price:.2f} USD\n"
-
-    # Цены 12 часов назад
-    if "12h" in prices:
-        message += f"\nЦены 12 часов назад:\n"
-        for symbol, price in prices["12h"]["data"].items():
-            message += f"💰{symbol}: {price:.2f} USD\n"
-
-    # Цены 24 часа назад
-    if "24h" in prices:
-        message += f"\nЦены 24 часа назад:\n"
-        for symbol, price in prices["24h"]["data"].items():
-            message += f"💰{symbol}: {price:.2f} USD\n"
-
-    await update.message.reply_text(message)
-
-async def test_save(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    update_prices()  # Сохраняет данные о текущих ценах, 12 и 24 часа назад
-    await update.message.reply_text("Данные сохранены для проверки.")
-
+# Отправка обновлений пользователям
 async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
-    update_prices()
-    prices = load_prices()
-    message = "📈 Обновленные данные о ценах на криптовалюту:\n"
-
-    # Текущие цены
-    if "now" in prices:
-        message += "Текущие цены:\n"
-        for symbol, price in prices["now"]["data"].items():
-            message += f"💰{symbol}: {price:.2f} USD\n"
-
+    print("Запуск send_crypto_update...")  # Проверка запуска задания
+    message = get_crypto_data()
+    if not message:
+        print("Ошибка при получении данных о криптовалюте")
+        return
     users = load_users()
     for chat_id in users:
         try:
             await context.bot.send_message(chat_id=chat_id, text=message)
+            print(f"Сообщение отправлено пользователю {chat_id}")
         except Exception as e:
             print(f"Ошибка отправки для {chat_id}: {e}")
             if "bot was blocked" in str(e) or "user is deactivated" in str(e):
                 users.remove(chat_id)
                 save_users(users)
 
-# Основные настройки бота
+
+# Команда /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    await update.message.reply_text("🤑 Вы подписались на рассылку(в 9:00 и 19:00) цен на Криптовалюты ,"
+                                    " нажмите введите /crypto 👈,для получения информации сразу")
+    add_user(chat_id)
+    print("Received /start command")
+
+
+
+# Создание бота
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
 
+
+# Вебхук Telegram
 @app.route('/webhook', methods=['POST'])
 async def webhook():
     data = request.get_json()
@@ -201,29 +107,53 @@ async def webhook():
         await bot_app.update_queue.put(update)
         return "ok", 200
     except Exception as e:
-        print(f"Ошибка обработки вебхука: {e}")
+        print(f"Webhook processing error: {e}")
         return "Error", 500
 
-# Запуск бота и веб-сервера
-async def main():
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("count", count))
-    bot_app.add_handler(CommandHandler("history", history))
-    bot_app.add_handler(CommandHandler("test_save", test_save))  # Временная команда для тестирования сохранения
 
+# Основная функция инициализации
+from datetime import timedelta
+
+# Команда /crypto для запроса обновлений
+async def crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = get_crypto_data()
+    await update.message.reply_text(message)
+
+# Основная функция инициализации
+async def main():
+    # Add all handlers here
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CommandHandler("crypto", crypto))
+    bot_app.add_handler(CommandHandler("count", count))
+    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # Schedule daily update jobs
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=6, minute=0))
     job_queue.run_daily(send_crypto_update, time(hour=16, minute=0))
 
+    # Initialize bot and set webhook
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+    print("Webhook set!")
     await bot_app.start()
 
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Доступные команды: /start для подписки, /crypto для получения данных.")
+
+async def count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_count = get_user_count()
+    await update.message.reply_text(f"В боте {user_count} подписчиковс🥹.")
+
+
+# Запуск Flask и бота с Hypercorn
 async def run_flask():
     config = Config()
-    config.bind = ["0.0.0.0:10000"]
+    config.bind = ["0.0.0.0:10000"]  # Render открывает порт 10000
     await serve(app, config)
 
+
+# Запуск Flask и бота
 if __name__ == "__main__":
     nest_asyncio.apply()
     asyncio.run(asyncio.gather(main(), run_flask()))
