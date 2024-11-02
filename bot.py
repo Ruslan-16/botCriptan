@@ -23,7 +23,6 @@ WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Render
 # URL для работы с Яндекс.Диском
 YDB_URL = "https://cloud-api.yandex.net/v1/disk/resources"
 
-
 # Загрузка и сохранение данных на Яндекс.Диске
 def upload_to_yandex_disk(local_file_path, remote_file_path):
     """Загружает файл на Яндекс.Диск."""
@@ -38,7 +37,6 @@ def upload_to_yandex_disk(local_file_path, remote_file_path):
     else:
         print(f"Ошибка получения ссылки для загрузки: {response.status_code}")
         return False
-
 
 def download_from_yandex_disk(remote_file_path, local_file_path):
     """Скачивает файл с Яндекс.Диска."""
@@ -55,7 +53,6 @@ def download_from_yandex_disk(remote_file_path, local_file_path):
     print(f"Ошибка при скачивании файла: {response.status_code}")
     return False
 
-
 def load_users():
     """Загружает список пользователей из файла users.json на Яндекс.Диске."""
     download_from_yandex_disk('users.json', 'users.json')
@@ -64,13 +61,11 @@ def load_users():
             return json.load(f)
     return []
 
-
 def save_users(users):
     """Сохраняет список пользователей в файл users.json на Яндекс.Диске."""
     with open("users.json", "w") as f:
         json.dump(users, f)
     upload_to_yandex_disk('users.json', 'users.json')
-
 
 def add_user(chat_id):
     users = load_users()
@@ -78,11 +73,9 @@ def add_user(chat_id):
         users.append(chat_id)
         save_users(users)
 
-
 def get_user_count():
     users = load_users()
     return len(users)
-
 
 # Функции для работы с ценами на криптовалюты
 def load_prices():
@@ -93,13 +86,11 @@ def load_prices():
             return json.load(f)
     return {}
 
-
 def save_prices(prices):
     """Сохраняет исторические данные о ценах в файл prices.json на Яндекс.Диске."""
     with open("prices.json", "w") as f:
         json.dump(prices, f)
     upload_to_yandex_disk('prices.json', 'prices.json')
-
 
 def get_crypto_data():
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
@@ -114,7 +105,6 @@ def get_crypto_data():
     else:
         print(f"Ошибка получения данных: {response.status_code}")
         return {}
-
 
 def update_prices():
     """Обновляет текущие данные и сохраняет записи для трех точек: сейчас, 12 часов назад, и 24 часа назад."""
@@ -139,7 +129,6 @@ def update_prices():
     else:
         print("Не удалось получить текущие данные о ценах.")
 
-
 # Команды бота
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -148,11 +137,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Используйте /history для просмотра текущих и исторических цен.")
     add_user(chat_id)
 
-
 async def count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_count = get_user_count()
     await update.message.reply_text(f"В боте {user_count} подписчиков 🙌.")
-
 
 async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     prices = load_prices()
@@ -178,6 +165,9 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(message)
 
+async def test_save(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    update_prices()  # Сохраняет данные о текущих ценах, 12 и 24 часа назад
+    await update.message.reply_text("Данные сохранены для проверки.")
 
 async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
     update_prices()
@@ -200,10 +190,8 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
                 users.remove(chat_id)
                 save_users(users)
 
-
 # Основные настройки бота
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
-
 
 @app.route('/webhook', methods=['POST'])
 async def webhook():
@@ -216,12 +204,12 @@ async def webhook():
         print(f"Ошибка обработки вебхука: {e}")
         return "Error", 500
 
-
 # Запуск бота и веб-сервера
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("count", count))
     bot_app.add_handler(CommandHandler("history", history))
+    bot_app.add_handler(CommandHandler("test_save", test_save))  # Временная команда для тестирования сохранения
 
     job_queue = bot_app.job_queue
     job_queue.run_daily(send_crypto_update, time(hour=6, minute=0))
@@ -231,12 +219,10 @@ async def main():
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
 
-
 async def run_flask():
     config = Config()
     config.bind = ["0.0.0.0:10000"]
     await serve(app, config)
-
 
 if __name__ == "__main__":
     nest_asyncio.apply()
