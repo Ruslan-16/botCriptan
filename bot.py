@@ -1,6 +1,6 @@
 import requests
 
-YANDEX_DISK_TOKEN = 'ВАШ_ТОКЕН_ЯНДЕКС_ДИСКА'
+YANDEX_DISK_TOKEN = 'y0_AgAAAABAMA6-AADLWwAAAAEW5PN-AABxGvuOh-1FNZdlYG16yhe5l_VWkw'
 YDB_URL = "https://cloud-api.yandex.net/v1/disk/resources"
 headers = {'Authorization': f'OAuth {YANDEX_DISK_TOKEN}'}
 
