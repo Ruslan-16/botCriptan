@@ -3,4 +3,6 @@ requests
 Flask[async]
 nest_asyncio
 hypercorn
+firebase-admin
+requests
 
