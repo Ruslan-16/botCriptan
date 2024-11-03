@@ -4,6 +4,4 @@ Flask[async]
 nest_asyncio
 hypercorn
 firebase-admin
-python-telegram-bot
-Flask
 
