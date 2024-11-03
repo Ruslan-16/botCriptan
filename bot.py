@@ -22,8 +22,10 @@ TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 CMC_API_KEY = os.getenv("CMC_API_KEY")
 WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Render
 
-# Временная инициализация Firebase с использованием файла
-cred = credentials.Certificate("serviceAccountKey.json")
+# Инициализация Firebase с использованием учетных данных из переменной окружения
+firebase_credentials = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
+print("Firebase credentials загружены корректно:", firebase_credentials)  # Для отладки
+cred = credentials.Certificate(firebase_credentials)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
