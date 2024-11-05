@@ -15,9 +15,10 @@ app = Flask(__name__)
 nest_asyncio.apply()
 
 # Переменные окружения
-TG_BOT_TOKEN = '7602913247:AAFFy0De4_DSBg_c0V_wiK1TECMtAgMZJA8'
-CMC_API_KEY = "c923b3dc-cd07-4216-8edc-9d73beb665cc"
+TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
+CMC_API_KEY = os.getenv("CMC_API_KEY")
 WEBHOOK_URL = "https://botcriptan.onrender.com"  # URL на Render
+
 
 
 # Загрузка пользователей
