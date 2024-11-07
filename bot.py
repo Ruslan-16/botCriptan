@@ -3,7 +3,7 @@ import json
 import requests
 from datetime import datetime, timedelta, time
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 import nest_asyncio
 import asyncio
 from flask import Flask, request
@@ -25,9 +25,6 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://ruslan-16-botcriptan-dd61.twc1.n
 USERS_FILE = "users.json"
 DATA_FILE = "crypto_data.json"
 
-# Создание бота
-bot_app = Application.builder().token(TG_BOT_TOKEN).build()
-
 # Определяем точность для каждого символа
 precision = {
     "BTC": 2, "ETH": 2, "ADA": 3, "PEPE": 6, "SOL": 2, "SUI": 2, 'TON': 2, 'FET': 3,
@@ -36,12 +33,14 @@ precision = {
     'ATOM': 2, 'POL': 3, 'OP': 2, 'SEI': 3
 }
 
-# Функции для загрузки и сохранения данных
+
+# Функции для работы с файлами
 def load_json(filename):
     if os.path.exists(filename):
         with open(filename, "r") as f:
             return json.load(f)
     return {}
+
 
 def save_json(filename, data):
     with open(filename, "w") as f:
@@ -109,7 +108,8 @@ def fetch_crypto_data():
         return None
 
 
-def update_crypto_data():
+# Делаем функцию асинхронной
+async def update_crypto_data():
     # Загружаем данные
     all_data = load_json(DATA_FILE)
     new_data = fetch_crypto_data()
@@ -134,7 +134,7 @@ def update_crypto_data():
 async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
     all_data = load_json(DATA_FILE).get("current", {})
     if not all_data:
-        update_crypto_data()  # Если данных нет, обновим их
+        await update_crypto_data()  # Если данных нет, обновим их
         all_data = load_json(DATA_FILE).get("current", {})
 
     message = format_crypto_data({"current": all_data}, "на текущий момент")
@@ -145,6 +145,7 @@ async def send_crypto_update(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=chat_id, text=message)
         except Exception as e:
             print(f"Ошибка отправки для {chat_id}: {e}")
+            # Удаляем пользователя, если бот был заблокирован или пользователь деактивирован
             if "bot was blocked" in str(e) or "user is deactivated" in str(e):
                 remove_user(chat_id)
 
@@ -202,17 +203,9 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message)
 
 
-# Вебхук Telegram
-@app.route('/webhook', methods=['POST'])
-async def webhook():
-    data = request.get_json()
-    update = Update.de_json(data, bot_app.bot)
-    await bot_app.update_queue.put(update)
-    return "ok", 200
-
-
 # Основная функция инициализации
 async def main():
+    bot_app = Application.builder().token(TG_BOT_TOKEN).build()
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("crypto", get_crypto_history))
     bot_app.add_handler(CommandHandler("history", get_crypto_history))
@@ -220,16 +213,25 @@ async def main():
 
     # Регулярное обновление данных
     job_queue = bot_app.job_queue
-    job_queue.run_repeating(lambda _: update_crypto_data(), interval=3600)
+    job_queue.run_repeating(lambda _: asyncio.create_task(update_crypto_data()), interval=3600)
 
     # Отправка данных пользователям по расписанию (9:00 и 19:00)
-    job_queue.run_daily(lambda _: send_crypto_update(_), time(hour=9, minute=0))
-    job_queue.run_daily(lambda _: send_crypto_update(_), time(hour=19, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=9, minute=0))
+    job_queue.run_daily(send_crypto_update, time(hour=19, minute=0))
 
     # Настройка вебхука и запуск бота
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
+
+
+# Вебхук Telegram
+@app.route('/webhook', methods=['POST'])
+async def webhook():
+    data = request.get_json()
+    update = Update.de_json(data, bot_app.bot)
+    await bot_app.update_queue.put(update)
+    return "ok", 200
 
 
 # Запуск Flask и бота с Hypercorn
