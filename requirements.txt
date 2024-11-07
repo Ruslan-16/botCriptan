@@ -2,6 +2,6 @@ aiohttp
 hypercorn
 nest_asyncio
 python-telegram-bot
-Flask
+flask[async]
 requests
 
