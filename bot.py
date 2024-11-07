@@ -77,6 +77,7 @@ async def fetch_crypto_data():
         async with session.get(url, headers=headers, params=params) as response:
             if response.status == 200:
                 data = await response.json()
+                print("Данные от API получены:", data)
                 return {
                     "timestamp": datetime.now().isoformat(),
                     "prices": {
@@ -91,16 +92,19 @@ async def fetch_crypto_data():
 
 async def update_crypto_data():
     all_data = load_json(DATA_FILE)
+    print("Данные перед обновлением:", all_data)
+
+    # Получение новых данных
     new_data = await fetch_crypto_data()
+    print("Полученные новые данные:", new_data)
 
     if new_data:
-        print("Данные криптовалюты успешно получены:", new_data)
         timestamp = datetime.now().isoformat()
         all_data["current"] = new_data
         all_data["history"] = all_data.get("history", {})
         all_data["history"][timestamp] = new_data
 
-        # Оставляем данные последних 24 часов, исключая ключ 'current'
+        # Оставляем данные последних 24 часов
         one_day_ago = datetime.now() - timedelta(hours=24)
         all_data["history"] = {
             ts: data for ts, data in all_data["history"].items()
@@ -108,7 +112,7 @@ async def update_crypto_data():
         }
 
         save_json(DATA_FILE, all_data)
-        print("Данные обновлены и сохранены.")
+        print("Данные после сохранения:", all_data)
     else:
         print("Не удалось обновить данные криптовалюты.")
 
@@ -116,14 +120,26 @@ async def update_crypto_data():
 # Асинхронный обработчик команды /cripto
 async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /cripto вызвана.")
+
+    # Загружаем данные
     all_data = load_json(DATA_FILE).get("current", {})
+    print("Загруженные данные для 'current':", all_data)
+
+    # Если данных нет, вызываем обновление
     if not all_data:
         print("Данные не найдены, выполняется обновление...")
-        await update_crypto_data()
+        await update_crypto_data()  # Попытка обновления данных
         all_data = load_json(DATA_FILE).get("current", {})
+        print("Данные после обновления:", all_data)
 
-    message = format_crypto_data({"current": all_data}, "на текущий момент")
+    # Формирование сообщения или сообщение об ошибке
+    if not all_data:
+        message = "🚫 Не удалось получить данные о криптовалюте в данный момент."
+    else:
+        message = format_crypto_data({"current": all_data}, "на текущий момент")
+
     await update.message.reply_text(message)
+
 
 # Асинхронный обработчик команды /history
 async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
