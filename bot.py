@@ -186,7 +186,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     first_name = update.effective_chat.first_name
     username = update.effective_chat.username
-    await update.message.reply_textawait
     await update.message.reply_text(
         "👋 Привет! Теперь вы подписаны на рассылку цен криптовалют.\n"
         "🔔 Мы будем присылать актуальные данные дважды в день: в 9:00 и 19:00.\n\n"
