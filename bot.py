@@ -54,11 +54,17 @@ def load_json(filename):
     try:
         if os.path.exists(filename):
             with open(filename, "r") as f:
-                return json.load(f)
+                data = json.load(f)
+                # Если файл пуст или не соответствует формату, возвращаем пустой словарь
+                if not isinstance(data, dict):
+                    print("Файл не соответствует формату, инициализируем пустым словарем.")
+                    return {}
+                return data
         return {}
     except json.JSONDecodeError:
         print(f"Ошибка чтения файла {filename}. Возможно, файл поврежден.")
         return {}
+
 
 def save_json(filename, data):
     try:
