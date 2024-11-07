@@ -168,12 +168,13 @@ bot_app = Application.builder().token(TG_BOT_TOKEN).build()
 # Обработка вебхуков
 @app.route('/webhook', methods=['POST'])
 async def webhook():
-    data = request.get_json()  # Удаляем await, так как это синхронный метод
+    data = request.get_json()
     if data:
         update = Update.de_json(data, bot_app.bot)
-        await bot_app.update_queue.put(update)
+        await bot_app.update_queue.put(update)  # await используется только здесь
         print("Получен новый вебхук.")
     return "ok", 200
+
 
 
 # Запуск бота Telegram
