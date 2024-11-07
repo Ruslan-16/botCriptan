@@ -1,6 +1,6 @@
 import os
 import json
-import requests
+import aiohttp
 from datetime import datetime, timedelta, time
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -54,14 +54,21 @@ def format_crypto_data(data, period):
 
 # Функции для работы с файлами
 def load_json(filename):
-    if os.path.exists(filename):
-        with open(filename, "r") as f:
-            return json.load(f)
-    return {}
+    try:
+        if os.path.exists(filename):
+            with open(filename, "r") as f:
+                return json.load(f)
+        return {}
+    except json.JSONDecodeError:
+        print(f"Ошибка чтения файла {filename}. Возможно, файл поврежден.")
+        return {}
 
 def save_json(filename, data):
-    with open(filename, "w") as f:
-        json.dump(data, f)
+    try:
+        with open(filename, "w") as f:
+            json.dump(data, f)
+    except IOError as e:
+        print(f"Ошибка записи файла {filename}: {e}")
 
 # Функции для работы с крипто-данными
 async def fetch_crypto_data():
@@ -71,21 +78,22 @@ async def fetch_crypto_data():
                'CAKE', '1INCH', 'MANA', 'FLOW', 'EGLD', 'ARB', 'DYDX', 'APEX', 'CRV', 'ATOM', 'POL', 'OP', 'SEI']
     params = {"symbol": ",".join(symbols), "convert": "USD"}
 
-    response = requests.get(url, headers=headers, params=params)
-    if response.status_code == 200:
-        data = response.json()["data"]
-        current_data = {
-            "timestamp": datetime.now().isoformat(),
-            "prices": {
-                symbol: round(data[symbol]["quote"]["USD"]["price"], precision.get(symbol, 2))
-                for symbol in symbols if symbol in data
-            }
-        }
-        print("Данные по криптовалютам получены успешно.")
-        return current_data
-    else:
-        print("Ошибка при получении данных:", response.status_code, response.text)
-        return None
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers, params=params) as response:
+            if response.status == 200:
+                data = await response.json()
+                current_data = {
+                    "timestamp": datetime.now().isoformat(),
+                    "prices": {
+                        symbol: round(data["data"][symbol]["quote"]["USD"]["price"], precision.get(symbol, 2))
+                        for symbol in symbols if symbol in data["data"]
+                    }
+                }
+                print("Данные по криптовалютам получены успешно.")
+                return current_data
+            else:
+                print("Ошибка при получении данных:", response.status, await response.text())
+                return None
 
 async def update_crypto_data():
     all_data = load_json(DATA_FILE)
@@ -165,6 +173,8 @@ def add_user(chat_id, first_name=None, username=None):
         }
         save_json(USERS_FILE, users)
         print(f"Пользователь {first_name} добавлен.")
+    else:
+        print(f"Пользователь {first_name} уже существует.")
 
 # Создание и запуск приложения Telegram
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
@@ -172,8 +182,9 @@ bot_app = Application.builder().token(TG_BOT_TOKEN).build()
 @app.route('/webhook', methods=['POST'])
 async def webhook():
     data = request.get_json()
-    update = Update.de_json(data, bot_app.bot)
-    await bot_app.update_queue.put(update)
+    if data:
+        update = Update.de_json(data, bot_app.bot)
+        await bot_app.update_queue.put(update)
     return "ok", 200
 
 async def main():
@@ -181,11 +192,6 @@ async def main():
     bot_app.add_handler(CommandHandler("crypto", get_crypto))
     bot_app.add_handler(CommandHandler("history", get_crypto_history))
     bot_app.add_handler(CommandHandler("user_count", user_count))
-
-    job_queue = bot_app.job_queue
-    job_queue.run_repeating(lambda _: update_crypto_data(), interval=3600)
-    job_queue.run_daily(get_crypto, time(hour=9, minute=0))
-    job_queue.run_daily(get_crypto, time(hour=19, minute=0))
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
