@@ -33,6 +33,25 @@ precision = {
     'ATOM': 2, 'POL': 3, 'OP': 2, 'SEI': 3
 }
 
+# Функция форматирования данных
+def format_crypto_data(data, period):
+    if not data:
+        return f"Данных {period} нет."
+
+    message = f"🕒 Данные о криптовалютах {period}:\n"
+
+    for ts, prices in data.items():
+        # Форматируем метку времени в формат DD.MM.YYYY HH:MM:SS
+        formatted_time = datetime.fromisoformat(ts).strftime('%d.%m.%Y %H:%M:%S')
+        message += f"\n⏱️ Время: {formatted_time}\n"
+
+        for symbol, price in prices["prices"].items():
+            # Применяем нужное количество знаков после запятой
+            decimals = precision.get(symbol, 2)
+            message += f"💰 {symbol}: ${price:.{decimals}f}\n"
+
+    return message
+
 # Функции для работы с файлами
 def load_json(filename):
     if os.path.exists(filename):
@@ -62,6 +81,7 @@ async def fetch_crypto_data():
                 for symbol in symbols if symbol in data
             }
         }
+        print("Данные по криптовалютам получены успешно.")
         return current_data
     else:
         print("Ошибка при получении данных:", response.status_code, response.text)
@@ -89,8 +109,10 @@ async def update_crypto_data():
 
 # Команда /crypto для отправки текущих данных
 async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("Команда /crypto вызвана.")
     all_data = load_json(DATA_FILE).get("current", {})
     if not all_data:
+        print("Данные не найдены, выполняется обновление...")
         await update_crypto_data()
         all_data = load_json(DATA_FILE).get("current", {})
 
@@ -99,6 +121,7 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Команда /history для данных за последние 12 и 24 часа
 async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("Команда /history вызвана.")
     all_data = load_json(DATA_FILE).get("history", {})
     twelve_hours_ago = datetime.now() - timedelta(hours=12)
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
@@ -114,30 +137,12 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 # Команда /user_count для получения информации о пользователях
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("Команда /user_count вызвана.")
     users = load_json(USERS_FILE)
     user_count = len(users)
     user_list = [f"{user['first_name']} (@{user['username']})" for user in users.values()]
     message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
     await update.message.reply_text(message)
-
-# Функция форматирования данных
-def format_crypto_data(data, period):
-    if not data:
-        return f"Данных {period} нет."
-
-    message = f"🕒 Данные о криптовалютах {period}:\n"
-
-    for ts, prices in data.items():
-        # Форматируем метку времени в формат DD.MM.YYYY HH:MM:SS
-        formatted_time = datetime.fromisoformat(ts).strftime('%d.%m.%Y %H:%M:%S')
-        message += f"\n⏱️ Время: {formatted_time}\n"
-
-        for symbol, price in prices["prices"].items():
-            # Применяем нужное количество знаков после запятой
-            decimals = precision.get(symbol, 2)
-            message += f"💰 {symbol}: ${price:.{decimals}f}\n"
-
-    return message
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -159,6 +164,7 @@ def add_user(chat_id, first_name=None, username=None):
             "blocked": False
         }
         save_json(USERS_FILE, users)
+        print(f"Пользователь {first_name} добавлен.")
 
 # Создание и запуск приложения Telegram
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
@@ -178,6 +184,8 @@ async def main():
 
     job_queue = bot_app.job_queue
     job_queue.run_repeating(lambda _: update_crypto_data(), interval=3600)
+    job_queue.run_daily(get_crypto, time(hour=9, minute=0))
+    job_queue.run_daily(get_crypto, time(hour=19, minute=0))
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
