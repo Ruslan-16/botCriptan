@@ -97,11 +97,14 @@ async def update_crypto_data():
 
     # Получение новых данных
     new_data = await fetch_crypto_data()
-    print("Полученные новые данные:", new_data)
+    print("Полученные новые данные от API:", new_data)
 
     if new_data:
-        timestamp = datetime.now().isoformat()
+        # Обновляем текущие данные
         all_data["current"] = new_data  # сохраняем текущие данные отдельно
+        timestamp = datetime.now().isoformat()
+
+        # Обновляем историю с текущей временной меткой
         all_data["history"] = all_data.get("history", {})
         all_data["history"][timestamp] = new_data
 
@@ -112,6 +115,7 @@ async def update_crypto_data():
             if datetime.fromisoformat(ts) > one_day_ago
         }
 
+        # Сохраняем обновлённые данные в файл
         save_json(DATA_FILE, all_data)
         print("Данные после сохранения:", all_data)
     else:
@@ -123,13 +127,13 @@ async def update_crypto_data():
 async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /cripto вызвана.")
     all_data = load_json(DATA_FILE).get("current", {})
-    print("Загруженные данные для 'current':", all_data)
+    print("Загруженные данные для 'current' после загрузки из файла:", all_data)
 
     if not all_data:
         print("Данные не найдены, выполняется обновление...")
         await update_crypto_data()
         all_data = load_json(DATA_FILE).get("current", {})
-        print("Данные после обновления:", all_data)
+        print("Данные после обновления и загрузки из файла:", all_data)
 
     # Формируем сообщение с текущими данными напрямую
     if not all_data:
