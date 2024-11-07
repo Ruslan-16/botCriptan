@@ -186,7 +186,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     first_name = update.effective_chat.first_name
     username = update.effective_chat.username
-    await update.message.reply_text("🤑 Вы подписались на рассылку. Введите /cripto для получения текущей информации.")
+    await update.message.reply_textawait
+    await update.message.reply_text(
+        "👋 Привет! Теперь вы подписаны на рассылку цен криптовалют.\n"
+        "🔔 Мы будем присылать актуальные данные дважды в день: в 9:00 и 19:00.\n\n"
+        "📌 Команды:\n"
+        " - /cripto — узнать текущие цены\n"
+        " - /history — получить данные за последние 12 и 24 часа\n\n"
+        "💹 Удачного трейдинга и следите за ценами!"
+    )
     add_user(chat_id, first_name=first_name, username=username)
 
 
