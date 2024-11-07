@@ -1,7 +1,7 @@
 import os
 import json
 import aiohttp
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 import nest_asyncio
@@ -39,20 +39,16 @@ def format_crypto_data(data, period):
         return f"Данных {period} нет."
 
     message = f"🕒 Данные о криптовалютах {period}:\n"
-
     for ts, prices in data.items():
-        # Форматируем метку времени в формат DD.MM.YYYY HH:MM:SS
         formatted_time = datetime.fromisoformat(ts).strftime('%d.%m.%Y %H:%M:%S')
         message += f"\n⏱️ Время: {formatted_time}\n"
-
         for symbol, price in prices["prices"].items():
-            # Применяем нужное количество знаков после запятой
             decimals = precision.get(symbol, 2)
             message += f"💰 {symbol}: ${price:.{decimals}f}\n"
 
     return message
 
-# Функции для работы с файлами
+# Загрузка и сохранение данных в файлах JSON
 def load_json(filename):
     try:
         if os.path.exists(filename):
@@ -70,27 +66,24 @@ def save_json(filename, data):
     except IOError as e:
         print(f"Ошибка записи файла {filename}: {e}")
 
-# Функции для работы с крипто-данными
+# Асинхронная функция для получения данных криптовалют
 async def fetch_crypto_data():
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
-    symbols = ["BTC", "ETH", "ADA", "PEPE", "SOL", "SUI", 'TON', 'FET', 'APT', 'AVAX', 'FLOKI', 'TWT', 'ALGO',
-               'CAKE', '1INCH', 'MANA', 'FLOW', 'EGLD', 'ARB', 'DYDX', 'APEX', 'CRV', 'ATOM', 'POL', 'OP', 'SEI']
+    symbols = list(precision.keys())
     params = {"symbol": ",".join(symbols), "convert": "USD"}
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers, params=params) as response:
             if response.status == 200:
                 data = await response.json()
-                current_data = {
+                return {
                     "timestamp": datetime.now().isoformat(),
                     "prices": {
-                        symbol: round(data["data"][symbol]["quote"]["USD"]["price"], precision.get(symbol, 2))
+                        symbol: round(data["data"][symbol]["quote"]["USD"]["price"], precision[symbol])
                         for symbol in symbols if symbol in data["data"]
                     }
                 }
-                print("Данные по криптовалютам получены успешно.")
-                return current_data
             else:
                 print("Ошибка при получении данных:", response.status, await response.text())
                 return None
@@ -105,19 +98,18 @@ async def update_crypto_data():
         all_data["history"] = all_data.get("history", {})
         all_data["history"][timestamp] = new_data
 
-        # Оставляем только последние 24 часа данных
+        # Оставляем данные последних 24 часов
         one_day_ago = datetime.now() - timedelta(hours=24)
-        all_data["history"] = {ts: data for ts, data in all_data["history"].items() if
-                               datetime.fromisoformat(ts) > one_day_ago}
+        all_data["history"] = {ts: data for ts, data in all_data["history"].items() if datetime.fromisoformat(ts) > one_day_ago}
 
         save_json(DATA_FILE, all_data)
         print("Данные обновлены и сохранены.")
     else:
         print("Не удалось обновить данные.")
 
-# Команда /crypto для отправки текущих данных
+# Асинхронный обработчик команды /cripto
 async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("Команда /crypto вызвана.")
+    print("Команда /cripto вызвана.")
     all_data = load_json(DATA_FILE).get("current", {})
     if not all_data:
         print("Данные не найдены, выполняется обновление...")
@@ -127,7 +119,7 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = format_crypto_data({"current": all_data}, "на текущий момент")
     await update.message.reply_text(message)
 
-# Команда /history для данных за последние 12 и 24 часа
+# Асинхронный обработчик команды /history
 async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /history вызвана.")
     all_data = load_json(DATA_FILE).get("history", {})
@@ -143,7 +135,7 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text(message_12h)
     await update.message.reply_text(message_24h)
 
-# Команда /user_count для получения информации о пользователях
+# Асинхронный обработчик команды /user_count
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /user_count вызвана.")
     users = load_json(USERS_FILE)
@@ -152,51 +144,50 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
     await update.message.reply_text(message)
 
-# Команда /start
+# Асинхронный обработчик команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     first_name = update.effective_chat.first_name
     username = update.effective_chat.username
-    await update.message.reply_text("🤑 Вы подписались на рассылку (в 9:00 и 19:00) цен на криптовалюты. "
-                                    "Введите /crypto для получения текущей информации, и /history для данных за "
-                                    "последние 12 и 24 часа.")
+    await update.message.reply_text("🤑 Вы подписались на рассылку. Введите /cripto для получения текущей информации.")
     add_user(chat_id, first_name=first_name, username=username)
 
-# Добавление пользователя
+# Добавление пользователя в файл
 def add_user(chat_id, first_name=None, username=None):
     users = load_json(USERS_FILE)
     if chat_id not in users:
-        users[chat_id] = {
-            "first_name": first_name,
-            "username": username,
-            "blocked": False
-        }
+        users[chat_id] = {"first_name": first_name, "username": username, "blocked": False}
         save_json(USERS_FILE, users)
         print(f"Пользователь {first_name} добавлен.")
     else:
         print(f"Пользователь {first_name} уже существует.")
 
-# Создание и запуск приложения Telegram
+# Создание приложения Telegram
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
 
+# Обработка вебхуков
 @app.route('/webhook', methods=['POST'])
 async def webhook():
-    data = request.get_json()
+    data = await request.get_json()
     if data:
         update = Update.de_json(data, bot_app.bot)
         await bot_app.update_queue.put(update)
+        print("Получен новый вебхук.")
     return "ok", 200
 
+# Запуск бота Telegram
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("crypto", get_crypto))
+    bot_app.add_handler(CommandHandler("cripto", get_crypto))
     bot_app.add_handler(CommandHandler("history", get_crypto_history))
     bot_app.add_handler(CommandHandler("user_count", user_count))
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
+    print("Бот запущен и вебхук установлен.")
 
+# Запуск Flask
 async def run_flask():
     config = Config()
     config.bind = ["0.0.0.0:8443"]
