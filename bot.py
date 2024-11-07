@@ -19,7 +19,7 @@ app = Flask(__name__)
 # Переменные окружения
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN", "7602913247:AAFFy0De4_DSBg_c0V_wiK1TECMtAgMZJA8")
 CMC_API_KEY = os.getenv("CMC_API_KEY", "c923b3dc-cd07-4216-8edc-9d73beb665cc")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://example.com/webhook")  # Замените на актуальный URL после развертывания
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://ruslan-16-botcriptan-dd61.twc1.net/webhook")
 
 # Файлы для хранения пользователей и данных
 USERS_FILE = "users.json"
