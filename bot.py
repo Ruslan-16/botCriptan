@@ -112,16 +112,24 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text(message_12h)
     await update.message.reply_text(message_24h)
 
+
 # Функция форматирования данных
 def format_crypto_data(data, period):
     if not data:
         return f"Данных {period} нет."
+
     message = f"🕒 Данные о криптовалютах {period}:\n"
+
     for ts, prices in data.items():
-        message += f"\n⏱️ Время: {ts}\n"
+        # Форматируем метку времени в формат DD.MM.YYYY HH:MM:SS
+        formatted_time = datetime.fromisoformat(ts).strftime('%d.%m.%Y %H:%M:%S')
+        message += f"\n⏱️ Время: {formatted_time}\n"
+
         for symbol, price in prices["prices"].items():
+            # Применяем нужное количество знаков после запятой
             decimals = precision.get(symbol, 2)
             message += f"💰 {symbol}: ${price:.{decimals}f}\n"
+
     return message
 
 # Команда /start
