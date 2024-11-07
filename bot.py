@@ -48,6 +48,7 @@ def format_crypto_data(data, period):
 
     return message
 
+
 # Загрузка и сохранение данных в файлах JSON
 def load_json(filename):
     try:
@@ -126,15 +127,18 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not all_data:
         print("Данные не найдены, выполняется обновление...")
-        await update_crypto_data()  # Попытка обновления данных
+        await update_crypto_data()
         all_data = load_json(DATA_FILE).get("current", {})
         print("Данные после обновления:", all_data)
 
-    # Формирование сообщения или сообщение об ошибке
+    # Формируем сообщение с текущими данными напрямую
     if not all_data:
         message = "🚫 Не удалось получить данные о криптовалюте в данный момент."
     else:
-        message = format_crypto_data({"current": all_data}, "на текущий момент")
+        message = "🕒 Данные о криптовалютах на текущий момент:\n"
+        for symbol, price in all_data["prices"].items():
+            decimals = precision.get(symbol, 2)
+            message += f"💰 {symbol}: ${price:.{decimals}f}\n"
 
     await update.message.reply_text(message)
 
