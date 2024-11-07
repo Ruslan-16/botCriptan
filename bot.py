@@ -178,7 +178,11 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     users = load_json(USERS_FILE)
     print("Загруженные пользователи:", users)
 
-    if not users:
+    # Проверяем, что users - это словарь, если это не так, выводим сообщение об ошибке
+    if not isinstance(users, dict):
+        message = "🚫 Ошибка: файл данных пользователей имеет неверный формат."
+        print("Ошибка: Ожидался словарь, но получен объект типа:", type(users))
+    elif not users:
         message = "👥 В настоящее время нет зарегистрированных пользователей."
     else:
         user_count = len(users)
@@ -186,6 +190,7 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
 
     await update.message.reply_text(message)
+
 
 
 # Асинхронный обработчик команды /start
