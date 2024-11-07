@@ -244,24 +244,27 @@ async def webhook():
 
 # Запуск бота Telegram
 async def main():
-    await bot_app.initialize()
-
-    # Настройка задач для рассылки крипто-данных в 9:00 и 19:00 каждый день
-    job_queue = bot_app.job_queue
-    if job_queue is None:
-        print("Ошибка: job_queue не инициализирован.")
-    else:
-        job_queue.run_daily(scheduled_crypto_update, time(hour=9, minute=0))
-        job_queue.run_daily(scheduled_crypto_update, time(hour=19, minute=0))
-
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("cripto", get_crypto))
     bot_app.add_handler(CommandHandler("history", get_crypto_history))
     bot_app.add_handler(CommandHandler("user_count", user_count))
 
+    await bot_app.initialize()
+
+    # Настройка задач для рассылки крипто-данных в 9:00 и 19:00 каждый день
+    job_queue = bot_app.job_queue
+    if job_queue is not None:
+        job_queue.run_daily(scheduled_crypto_update, time(hour=9, minute=0))
+        job_queue.run_daily(scheduled_crypto_update, time(hour=19, minute=0))
+    else:
+        print("Ошибка: job_queue не инициализирован.")
+
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
     print("Бот запущен, вебхук установлен и задачи по расписанию настроены.")
+
+    # Ожидание завершения работы бота перед завершением Flask
+    await bot_app.stop()
 
 # Запуск Flask
 async def run_flask():
