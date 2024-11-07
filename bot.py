@@ -112,6 +112,14 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text(message_12h)
     await update.message.reply_text(message_24h)
 
+# Команда /user_count для получения информации о пользователях
+async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    users = load_json(USERS_FILE)
+    user_count = len(users)
+    user_list = [f"{user['first_name']} (@{user['username']})" for user in users.values()]
+    message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
+    await update.message.reply_text(message)
+
 # Функция форматирования данных
 def format_crypto_data(data, period):
     if not data:
@@ -166,11 +174,10 @@ async def main():
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("crypto", get_crypto))
     bot_app.add_handler(CommandHandler("history", get_crypto_history))
+    bot_app.add_handler(CommandHandler("user_count", user_count))
 
     job_queue = bot_app.job_queue
     job_queue.run_repeating(lambda _: update_crypto_data(), interval=3600)
-    job_queue.run_daily(get_crypto, time(hour=9, minute=0))
-    job_queue.run_daily(get_crypto, time(hour=19, minute=0))
 
     await bot_app.initialize()
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
