@@ -235,7 +235,7 @@ async def main():
 # Запуск Flask и бота с Hypercorn
 async def run_flask():
     config = Config()
-    config.bind = ["0.0.0.0:10000"]
+    config.bind = ["0.0.0.0:8443"]
     await serve(app, config)
 
 
