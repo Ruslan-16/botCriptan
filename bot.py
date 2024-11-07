@@ -112,7 +112,6 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text(message_12h)
     await update.message.reply_text(message_24h)
 
-
 # Функция форматирования данных
 def format_crypto_data(data, period):
     if not data:
