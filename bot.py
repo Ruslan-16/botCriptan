@@ -176,10 +176,17 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /user_count вызвана.")
     users = load_json(USERS_FILE)
-    user_count = len(users)
-    user_list = [f"{user['first_name']} (@{user['username']})" for user in users.values()]
-    message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
+    print("Загруженные пользователи:", users)
+
+    if not users:
+        message = "👥 В настоящее время нет зарегистрированных пользователей."
+    else:
+        user_count = len(users)
+        user_list = [f"{user.get('first_name', 'Неизвестно')} (@{user.get('username', 'нет_логина')})" for user in users.values()]
+        message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
+
     await update.message.reply_text(message)
+
 
 # Асинхронный обработчик команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
