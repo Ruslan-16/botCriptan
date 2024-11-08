@@ -128,13 +128,11 @@ async def update_crypto_data():
 # Асинхронный обработчик команды /cripto
 async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /cripto вызвана.")
+
+    # Принудительно обновляем данные перед запросом
+    await update_crypto_data()  # Временное решение для теста
+
     all_data = load_json(DATA_FILE).get("current", {})
-
-    if not all_data:
-        print("Данные не найдены, выполняется обновление...")
-        await update_crypto_data()
-        all_data = load_json(DATA_FILE).get("current", {})
-
     if not all_data:
         message = "🚫 Не удалось получить данные о криптовалюте в данный момент."
     else:
@@ -149,6 +147,10 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Асинхронный обработчик команды /history
 async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /history вызвана.")
+
+    # Принудительно обновляем данные перед запросом
+    await update_crypto_data()  # Временное решение для теста
+
     all_data = load_json(DATA_FILE).get("history", {})
     twelve_hours_ago = datetime.now() - timedelta(hours=12)
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
