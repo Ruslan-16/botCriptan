@@ -9,7 +9,7 @@ import asyncio
 from flask import Flask, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
-
+from telegram.ext import Application, CommandHandler, ContextTypes, JobQueue
 nest_asyncio.apply()
 
 app = Flask(__name__)
@@ -207,8 +207,11 @@ async def webhook():
 
 
 async def main():
-    # Создаем JobQueue
-    bot_app.job_queue = bot_app.create_job_queue()
+    # Создаем JobQueue как отдельный объект
+    job_queue = JobQueue()
+
+    # Инициализируем JobQueue с ботом
+    await job_queue.set_application(bot_app)
 
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("cripto", get_crypto))
@@ -218,8 +221,8 @@ async def main():
     await bot_app.initialize()
 
     # Запускаем JobQueue для обновления истории
-    bot_app.job_queue.run_repeating(update_history, interval=3600, first=0)
-    await bot_app.job_queue.start()  # Запускаем JobQueue
+    job_queue.run_repeating(update_history, interval=3600, first=0)
+    await job_queue.start()  # Запускаем JobQueue
 
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
