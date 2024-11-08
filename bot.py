@@ -103,27 +103,23 @@ async def update_crypto_data():
     new_data = await fetch_crypto_data()
 
     if new_data:
-        # Обновляем текущие данные
-        all_data["current"] = new_data  # сохраняем текущие данные отдельно
+        # Сохраняем текущие данные
         timestamp = datetime.now().isoformat()
-
-        # Обновляем историю с текущей временной меткой
         all_data["history"] = all_data.get("history", {})
         all_data["history"][timestamp] = new_data
 
-        # Оставляем только данные последних 24 часов
+        # Оставляем только данные за последние 24 часа
         one_day_ago = datetime.now() - timedelta(hours=24)
         all_data["history"] = {
             ts: data for ts, data in all_data["history"].items()
             if datetime.fromisoformat(ts) > one_day_ago
         }
 
-        # Сохраняем обновлённые данные в файл, перезаписывая его
+        # Сохраняем обновленные данные в файл
         save_json(DATA_FILE, all_data)
-        print("Данные после сохранения:", all_data)
+        print("Обновленные данные сохранены:", all_data)
     else:
-        print("Не удалось обновить данные криптовалюты.")
-
+        print("Не удалось обновить данные криптовалют.")
 
 
 # Асинхронный обработчик команды /cripto
@@ -152,22 +148,23 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
     twelve_hours_ago = datetime.now() - timedelta(hours=12)
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
 
-    # Отбираем данные за последние 12 и 24 часа
+    # Данные за последние 12 и 24 часа
     recent_data_12h = {
         ts: data for ts, data in all_data.items()
-        if datetime.fromisoformat(ts) > twelve_hours_ago
+        if twelve_hours_ago < datetime.fromisoformat(ts) <= datetime.now()
     }
     recent_data_24h = {
         ts: data for ts, data in all_data.items()
-        if datetime.fromisoformat(ts) > twenty_four_hours_ago
+        if twenty_four_hours_ago < datetime.fromisoformat(ts) <= datetime.now()
     }
 
-    # Формируем сообщение и отправляем
+    # Формирование и отправка сообщений
     message_12h = format_crypto_data(recent_data_12h, "за последние 12 часов")
     message_24h = format_crypto_data(recent_data_24h, "за последние 24 часа")
 
     await update.message.reply_text(message_12h)
     await update.message.reply_text(message_24h)
+
 
 # Асинхронный обработчик команды /user_count
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
