@@ -9,7 +9,7 @@ import asyncio
 from flask import Flask, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
-from telegram.ext import Application, CommandHandler, ContextTypes, JobQueue
+
 nest_asyncio.apply()
 
 app = Flask(__name__)
@@ -90,8 +90,18 @@ async def fetch_crypto_data():
                 return None
 
 
+async def update_history_loop():
+    """Фоновое задание для регулярного обновления истории."""
+    while True:
+        try:
+            await update_history()
+        except Exception as e:
+            print(f"Ошибка при обновлении истории: {e}")
+        await asyncio.sleep(3600)  # Ждем 1 час перед следующим обновлением
+
+
 async def update_history():
-    """Обновляет историю данных криптовалют по расписанию."""
+    """Обновляет историю данных криптовалют."""
     all_data = load_json(DATA_FILE)
     history = all_data.get("history", [])
 
@@ -142,25 +152,43 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
                                   datetime.fromisoformat(entry["timestamp"]) <= twenty_four_hours_ago), None)
 
     # Формируем ответы
-    message_12h = format_crypto_data({twelve_hour_data["timestamp"]:
-                                          twelve_hour_data} if twelve_hour_data else {}, "за последние 12 часов")
-    message_24h = format_crypto_data({twenty_four_hour_data["timestamp"]:
-                                          twenty_four_hour_data} if twenty_four_hour_data else {}, "за последние 24 часа")
+    message_12h = format_crypto_data({twelve_hour_data["timestamp"] if twelve_hour_data else "": twelve_hour_data}
+                                     if twelve_hour_data else {}, "за последние 12 часов")
+    message_24h = format_crypto_data({twenty_four_hour_data["timestamp"] if twenty_four_hour_data else "":
+                                       twenty_four_hour_data} if twenty_four_hour_data else {}, "за последние 24 часа")
 
     await update.message.reply_text(message_12h)
     await update.message.reply_text(message_24h)
 
 
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возвращает количество пользователей."""
+    """Возвращает количество пользователей, их имена и удаляет недоступных."""
     users = load_json(USERS_FILE)
     if not isinstance(users, dict):
         message = "🚫 Ошибка: файл данных пользователей имеет неверный формат."
     elif not users:
         message = "👥 В настоящее время нет зарегистрированных пользователей."
     else:
-        user_count = len(users)
-        message = f"👥 Всего пользователей: {user_count}"
+        accessible_users = {}
+        user_list = []
+        for chat_id, user_info in users.items():
+            try:
+                # Проверяем доступность чата
+                chat = await context.bot.get_chat(chat_id)
+                first_name = user_info.get("first_name", "Неизвестно")
+                username = user_info.get("username", "нет_логина")
+                user_list.append(f" - {first_name} (@{username})")
+                accessible_users[chat_id] = user_info  # Пользователь доступен
+            except Exception as e:
+                print(f"Пользователь {chat_id} удален: {e}")
+
+        # Обновляем файл пользователей
+        save_json(USERS_FILE, accessible_users)
+
+        # Формируем сообщение
+        user_count = len(accessible_users)
+        message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
+
     await update.message.reply_text(message)
 
 
@@ -207,22 +235,12 @@ async def webhook():
 
 
 async def main():
-    # Создаем JobQueue как отдельный объект
-    job_queue = JobQueue()
-
-    # Инициализируем JobQueue с ботом
-    await job_queue.set_application(bot_app)
-
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("cripto", get_crypto))
     bot_app.add_handler(CommandHandler("history", get_crypto_history))
     bot_app.add_handler(CommandHandler("user_count", user_count))
 
     await bot_app.initialize()
-
-    # Запускаем JobQueue для обновления истории
-    job_queue.run_repeating(update_history, interval=3600, first=0)
-    await job_queue.start()  # Запускаем JobQueue
 
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
@@ -236,5 +254,4 @@ async def run_flask():
 
 if __name__ == "__main__":
     nest_asyncio.apply()
-    asyncio.run(asyncio.gather(main(), run_flask()))
-
+    asyncio.run(asyncio.gather(main(), run_flask(), update_history_loop()))
