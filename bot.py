@@ -111,18 +111,19 @@ async def update_crypto_data():
         all_data["history"] = all_data.get("history", {})
         all_data["history"][timestamp] = new_data
 
-        # Оставляем данные последних 24 часов
+        # Оставляем только данные последних 24 часов
         one_day_ago = datetime.now() - timedelta(hours=24)
         all_data["history"] = {
             ts: data for ts, data in all_data["history"].items()
             if datetime.fromisoformat(ts) > one_day_ago
         }
 
-        # Сохраняем обновлённые данные в файл
+        # Сохраняем обновлённые данные в файл, перезаписывая его
         save_json(DATA_FILE, all_data)
         print("Данные после сохранения:", all_data)
     else:
         print("Не удалось обновить данные криптовалюты.")
+
 
 
 # Асинхронный обработчик команды /cripto
@@ -147,15 +148,11 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Асинхронный обработчик команды /history
 async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /history вызвана.")
-
-    # Принудительно обновляем данные перед запросом
-    await update_crypto_data()  # Временное решение для теста
-
     all_data = load_json(DATA_FILE).get("history", {})
     twelve_hours_ago = datetime.now() - timedelta(hours=12)
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
 
-    # Фильтруем временные метки
+    # Отбираем данные за последние 12 и 24 часа
     recent_data_12h = {
         ts: data for ts, data in all_data.items()
         if datetime.fromisoformat(ts) > twelve_hours_ago
@@ -165,12 +162,12 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if datetime.fromisoformat(ts) > twenty_four_hours_ago
     }
 
+    # Формируем сообщение и отправляем
     message_12h = format_crypto_data(recent_data_12h, "за последние 12 часов")
     message_24h = format_crypto_data(recent_data_24h, "за последние 24 часа")
 
     await update.message.reply_text(message_12h)
     await update.message.reply_text(message_24h)
-
 
 # Асинхронный обработчик команды /user_count
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
