@@ -30,22 +30,23 @@ precision = {
 
 
 def format_crypto_data(data, period):
+    """Форматирует данные криптовалют для вывода."""
     if not data:
         return f"Данных {period} нет."
 
     message = f"🕒 Данные о криптовалютах {period}:\n"
-    for ts, prices in sorted(data.items(), reverse=True):  # Сортируем и удаляем дубликаты
+    for ts, prices in data.items():
         formatted_time = datetime.fromisoformat(ts).strftime('%d.%m.%Y %H:%M:%S')
         message += f"\n⏱️ Время: {formatted_time}\n"
         for symbol, price in prices["prices"].items():
             decimals = precision.get(symbol, 2)
             message += f"💰 {symbol}: ${price:.{decimals}f}\n"
-        break  # Ограничим вывод только последним обновлением
-
+        break  # Выводим только одно обновление
     return message
 
 
 def load_json(filename):
+    """Загружает данные из файла JSON."""
     try:
         if os.path.exists(filename):
             with open(filename, "r") as f:
@@ -58,6 +59,7 @@ def load_json(filename):
 
 
 def save_json(filename, data):
+    """Сохраняет данные в файл JSON."""
     try:
         with open(filename, "w") as f:
             json.dump(data, f)
@@ -66,6 +68,7 @@ def save_json(filename, data):
 
 
 async def fetch_crypto_data():
+    """Получает актуальные данные криптовалют из API CoinMarketCap."""
     url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
     headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
     symbols = list(precision.keys())
@@ -87,45 +90,69 @@ async def fetch_crypto_data():
                 return None
 
 
-async def update_crypto_data():
+async def update_history():
+    """Обновляет историю данных криптовалют по расписанию."""
     all_data = load_json(DATA_FILE)
-    new_data = await fetch_crypto_data()
+    history = all_data.get("history", [])
 
+    # Получение новых данных
+    new_data = await fetch_crypto_data()
     if new_data:
         timestamp = datetime.now().isoformat()
-        all_data["history"] = {timestamp: new_data}
+
+        # Добавляем новую запись и ограничиваем длину истории до 24 записей
+        history.append({"timestamp": timestamp, "prices": new_data["prices"]})
+        if len(history) > 24:
+            history.pop(0)
+
+        # Сохраняем обновленную историю
+        all_data["history"] = history
         save_json(DATA_FILE, all_data)
+        print("История обновлена:", history)
     else:
         print("Не удалось обновить данные криптовалют.")
 
 
 async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update_crypto_data()
-    all_data = load_json(DATA_FILE).get("history", {})
-
-    if not all_data:
+    """Возвращает актуальные данные криптовалют."""
+    current_data = await fetch_crypto_data()
+    if not current_data:
         message = "🚫 Не удалось получить данные о криптовалюте в данный момент."
     else:
-        message = format_crypto_data(all_data, "на текущий момент")
+        message = format_crypto_data({current_data["timestamp"]: current_data}, "на текущий момент")
     await update.message.reply_text(message)
 
 
 async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    all_data = load_json(DATA_FILE).get("history", {})
-    twelve_hours_ago = datetime.now() - timedelta(hours=12)
-    twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+    """Возвращает данные о криптовалютах за последние 12 и 24 часа из истории."""
+    all_data = load_json(DATA_FILE)
+    history = all_data.get("history", [])
+    if not history:
+        await update.message.reply_text("🚫 История данных отсутствует.")
+        return
 
-    recent_data_12h = {ts: data for ts, data in all_data.items() if datetime.fromisoformat(ts) > twelve_hours_ago}
-    recent_data_24h = {ts: data for ts, data in all_data.items() if datetime.fromisoformat(ts) > twenty_four_hours_ago}
+    now = datetime.now()
+    twelve_hours_ago = now - timedelta(hours=12)
+    twenty_four_hours_ago = now - timedelta(hours=24)
 
-    message_12h = format_crypto_data(recent_data_12h, "за последние 12 часов")
-    message_24h = format_crypto_data(recent_data_24h, "за последние 24 часа")
+    # Ищем записи в истории
+    twelve_hour_data = next((entry for entry in history if
+                             datetime.fromisoformat(entry["timestamp"]) <= twelve_hours_ago), None)
+    twenty_four_hour_data = next((entry for entry in history if
+                                  datetime.fromisoformat(entry["timestamp"]) <= twenty_four_hours_ago), None)
+
+    # Формируем ответы
+    message_12h = format_crypto_data({twelve_hour_data["timestamp"]:
+                                          twelve_hour_data} if twelve_hour_data else {}, "за последние 12 часов")
+    message_24h = format_crypto_data({twenty_four_hour_data["timestamp"]:
+                                          twenty_four_hour_data} if twenty_four_hour_data else {}, "за последние 24 часа")
 
     await update.message.reply_text(message_12h)
     await update.message.reply_text(message_24h)
 
 
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Возвращает количество пользователей."""
     users = load_json(USERS_FILE)
     if not isinstance(users, dict):
         message = "🚫 Ошибка: файл данных пользователей имеет неверный формат."
@@ -138,6 +165,7 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Приветственное сообщение с клавиатурой."""
     chat_id = update.effective_chat.id
     first_name = update.effective_chat.first_name
     username = update.effective_chat.username
@@ -159,6 +187,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def add_user(chat_id, first_name=None, username=None):
+    """Добавляет пользователя в файл."""
     users = load_json(USERS_FILE)
     if chat_id not in users:
         users[chat_id] = {"first_name": first_name, "username": username, "blocked": False}
@@ -184,6 +213,11 @@ async def main():
     bot_app.add_handler(CommandHandler("user_count", user_count))
 
     await bot_app.initialize()
+
+    # Настройка JobQueue для обновления истории каждый час
+    job_queue = bot_app.job_queue
+    job_queue.run_repeating(update_history, interval=3600, first=0)
+
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
 
