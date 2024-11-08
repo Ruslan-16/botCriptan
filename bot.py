@@ -207,9 +207,6 @@ async def webhook():
 
 
 async def main():
-    # Добавьте эту строку для инициализации JobQueue
-    bot_app.job_queue = bot_app.job_queue or bot_app.create_job_queue()
-
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("cripto", get_crypto))
     bot_app.add_handler(CommandHandler("history", get_crypto_history))
@@ -223,6 +220,7 @@ async def main():
 
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
+
 
 
 async def run_flask():
