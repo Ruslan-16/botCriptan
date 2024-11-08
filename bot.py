@@ -133,29 +133,32 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message)
 
 
-async def update_history():
-    """Обновляет историю данных криптовалют по расписанию."""
-    print("Запуск update_history...")  # Отладочный вывод
+async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Возвращает данные о криптовалютах за последние 12 и 24 часа из истории."""
     all_data = load_json(DATA_FILE)
     history = all_data.get("history", [])
+    if not history:
+        await update.message.reply_text("🚫 История данных отсутствует.")
+        return
 
-    # Получение новых данных
-    new_data = await fetch_crypto_data()
-    if new_data:
-        timestamp = datetime.now().isoformat()
+    now = datetime.now()
+    twelve_hours_ago = now - timedelta(hours=12)
+    twenty_four_hours_ago = now - timedelta(hours=24)
 
-        # Добавляем новую запись и ограничиваем длину истории до 24 записей
-        history.append({"timestamp": timestamp, "prices": new_data["prices"]})
-        if len(history) > 24:
-            history.pop(0)
+    # Ищем записи в истории
+    twelve_hour_data = next((entry for entry in history if
+                             datetime.fromisoformat(entry["timestamp"]) <= twelve_hours_ago), None)
+    twenty_four_hour_data = next((entry for entry in history if
+                                  datetime.fromisoformat(entry["timestamp"]) <= twenty_four_hours_ago), None)
 
-        # Сохраняем обновленную историю
-        all_data["history"] = history
-        save_json(DATA_FILE, all_data)
-        print("История успешно обновлена.")  # Отладочный вывод
-    else:
-        print("Не удалось обновить данные криптовалют.")  # Отладочный вывод
+    # Формируем ответы
+    message_12h = format_crypto_data({twelve_hour_data["timestamp"] if twelve_hour_data else "": twelve_hour_data}
+                                     if twelve_hour_data else {}, "за последние 12 часов")
+    message_24h = format_crypto_data({twenty_four_hour_data["timestamp"] if twenty_four_hour_data else "":
+                                       twenty_four_hour_data} if twenty_four_hour_data else {}, "за последние 24 часа")
 
+    await update.message.reply_text(message_12h)
+    await update.message.reply_text(message_24h)
 
 
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
