@@ -214,8 +214,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     add_user(chat_id, first_name=first_name, username=username)
 
-
-
 def add_user(chat_id, first_name=None, username=None):
     """Добавляет пользователя в файл."""
     users = load_json(USERS_FILE)
