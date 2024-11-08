@@ -33,6 +33,7 @@ precision = {
     'ATOM': 2, 'POL': 3, 'OP': 2, 'SEI': 3
 }
 
+
 # Функция форматирования данных
 def format_crypto_data(data, period):
     if not data:
@@ -48,13 +49,13 @@ def format_crypto_data(data, period):
 
     return message
 
+
 # Загрузка и сохранение данных в файлах JSON
 def load_json(filename):
     try:
         if os.path.exists(filename):
             with open(filename, "r") as f:
                 data = json.load(f)
-                # Если файл пуст или не соответствует формату, возвращаем пустой словарь
                 if not isinstance(data, dict):
                     print("Файл не соответствует формату, инициализируем пустым словарем.")
                     return {}
@@ -64,12 +65,14 @@ def load_json(filename):
         print(f"Ошибка чтения файла {filename}. Возможно, файл поврежден.")
         return {}
 
+
 def save_json(filename, data):
     try:
         with open(filename, "w") as f:
             json.dump(data, f)
     except IOError as e:
         print(f"Ошибка записи файла {filename}: {e}")
+
 
 # Асинхронная функция для получения данных криптовалют
 async def fetch_crypto_data():
@@ -92,6 +95,7 @@ async def fetch_crypto_data():
             else:
                 print("Ошибка при получении данных:", response.status, await response.text())
                 return None
+
 
 async def update_crypto_data():
     all_data = load_json(DATA_FILE)
@@ -118,6 +122,7 @@ async def update_crypto_data():
     else:
         print("Не удалось обновить данные криптовалют.")
 
+
 # Асинхронный обработчик команды /cripto
 async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /cripto вызвана.")
@@ -140,22 +145,33 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(message)
 
+
 # Асинхронный обработчик команды /history
 async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Команда /history вызвана.")
     all_data = load_json(DATA_FILE).get("history", {})
+
     twelve_hours_ago = datetime.now() - timedelta(hours=12)
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
 
-    # Данные за последние 12 и 24 часа
-    recent_data_12h = {
-        ts: data for ts, data in all_data.items()
-        if twelve_hours_ago < datetime.fromisoformat(ts) <= datetime.now()
-    }
-    recent_data_24h = {
-        ts: data for ts, data in all_data.items()
-        if twenty_four_hours_ago < datetime.fromisoformat(ts) <= datetime.now()
-    }
+    # Данные за последние 12 и 24 часа (одна запись в час)
+    recent_data_12h = {}
+    recent_data_24h = {}
+    last_added_time_12h = None
+    last_added_time_24h = None
+
+    for ts in sorted(all_data.keys(), reverse=True):
+        record_time = datetime.fromisoformat(ts)
+
+        # Фильтрация по интервалам
+        if twelve_hours_ago <= record_time <= datetime.now():
+            if last_added_time_12h is None or (record_time - last_added_time_12h).seconds >= 3600:
+                recent_data_12h[ts] = all_data[ts]
+                last_added_time_12h = record_time
+        if twenty_four_hours_ago <= record_time <= datetime.now():
+            if last_added_time_24h is None or (record_time - last_added_time_24h).seconds >= 3600:
+                recent_data_24h[ts] = all_data[ts]
+                last_added_time_24h = record_time
 
     # Формирование и отправка сообщений
     message_12h = format_crypto_data(recent_data_12h, "за последние 12 часов")
@@ -163,6 +179,7 @@ async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await update.message.reply_text(message_12h)
     await update.message.reply_text(message_24h)
+
 
 # Асинхронный обработчик команды /user_count
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -175,38 +192,33 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = "👥 В настоящее время нет зарегистрированных пользователей."
     else:
         user_count = len(users)
-        user_list = [f"{user.get('first_name', 'Неизвестно')} (@{user.get('username', 'нет_логина')})" for user in users.values()]
+        user_list = [f"{user.get('first_name', 'Неизвестно')} (@{user.get('username', 'нет_логина')})" for user in
+                     users.values()]
         message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
 
     await update.message.reply_text(message)
 
-# Обработчик команды /start с приветственным сообщением и кнопками
+
+# Асинхронный обработчик команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     first_name = update.effective_chat.first_name
     username = update.effective_chat.username
 
-    # Создаём клавиатуру с командами
-    keyboard = [
-        ["/cripto", "/history"],
-        ["/user_count"]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    keyboard = [["/cripto", "/history"], ["/user_count"]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
-    # Приветственное сообщение
     await update.message.reply_text(
-        f"👋 Привет, {first_name}!\n\n"
-        "Добро пожаловать в бота для отслеживания криптовалют!\n\n"
-        "📌 Доступные команды:\n"
+        f"👋 Привет, {first_name}! Добро пожаловать в бот для отслеживания курсов криптовалют.\n\n"
+        "📌 Команды:\n"
         " - /cripto — узнать текущие цены\n"
         " - /history — получить данные за последние 12 и 24 часа\n"
-        " - /user_count — посмотреть количество подписчиков\n\n"
-        "💹 Удачных торгов! Следите за курсом и оставайтесь на связи.",
+        " - /user_count — узнать количество подписанных пользователей\n\n"
+        "💹 Удачного трейдинга и следите за ценами!",
         reply_markup=reply_markup
     )
-
-    # Сохранение пользователя
     add_user(chat_id, first_name=first_name, username=username)
+
 
 # Добавление пользователя в файл
 def add_user(chat_id, first_name=None, username=None):
@@ -218,8 +230,10 @@ def add_user(chat_id, first_name=None, username=None):
     else:
         print(f"Пользователь {first_name} уже существует.")
 
+
 # Создание приложения Telegram
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
+
 
 # Обработка вебхуков
 @app.route('/webhook', methods=['POST'])
@@ -230,6 +244,7 @@ async def webhook():
         await bot_app.update_queue.put(update)
         print("Получен новый вебхук.")
     return "ok", 200
+
 
 # Запуск бота Telegram
 async def main():
@@ -243,11 +258,13 @@ async def main():
     await bot_app.start()
     print("Бот запущен и вебхук установлен.")
 
+
 # Запуск Flask
 async def run_flask():
     config = Config()
     config.bind = ["0.0.0.0:8443"]
     await serve(app, config)
+
 
 if __name__ == "__main__":
     nest_asyncio.apply()
