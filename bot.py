@@ -1,9 +1,9 @@
 import os
 import json
 import aiohttp
-from datetime import datetime, timedelta
+from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 import nest_asyncio
 import asyncio
 from flask import Flask, request
@@ -133,32 +133,18 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message)
 
 
-async def get_crypto_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возвращает данные о криптовалютах за последние 12 и 24 часа из истории."""
-    all_data = load_json(DATA_FILE)
-    history = all_data.get("history", [])
-    if not history:
-        await update.message.reply_text("🚫 История данных отсутствует.")
-        return
+async def explain_cripto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Объясняет, что делает кнопка 'Узнать цены', и вызывает функцию получения цен."""
+    query = update.callback_query
+    await query.answer()  # Закрыть индикатор ожидания Telegram
 
-    now = datetime.now()
-    twelve_hours_ago = now - timedelta(hours=12)
-    twenty_four_hours_ago = now - timedelta(hours=24)
-
-    # Ищем записи в истории
-    twelve_hour_data = next((entry for entry in history if
-                             datetime.fromisoformat(entry["timestamp"]) <= twelve_hours_ago), None)
-    twenty_four_hour_data = next((entry for entry in history if
-                                  datetime.fromisoformat(entry["timestamp"]) <= twenty_four_hours_ago), None)
-
-    # Формируем ответы
-    message_12h = format_crypto_data({twelve_hour_data["timestamp"] if twelve_hour_data else "": twelve_hour_data}
-                                     if twelve_hour_data else {}, "за последние 12 часов")
-    message_24h = format_crypto_data({twenty_four_hour_data["timestamp"] if twenty_four_hour_data else "":
-                                       twenty_four_hour_data} if twenty_four_hour_data else {}, "за последние 24 часа")
-
-    await update.message.reply_text(message_12h)
-    await update.message.reply_text(message_24h)
+    explanation = (
+        "📊 Эта команда покажет актуальные данные о популярных криптовалютах, "
+        "включая их текущие цены в долларах США.\n\n"
+        "💡 Для продолжения, пожалуйста, подождите несколько секунд..."
+    )
+    await query.edit_message_text(explanation)  # Обновить сообщение с объяснением
+    await get_crypto(update, context)  # Вызов функции для получения данных
 
 
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -199,20 +185,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.effective_chat.username
 
     # Клавиатура с кнопками
-    keyboard = [[InlineKeyboardButton("Узнать цены", callback_data="/cripto"),
-                 InlineKeyboardButton("История", callback_data="/history")]]
+    keyboard = [
+        [InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
         f"👋 Привет, {first_name}! Я помогу тебе отслеживать цены криптовалют.\n"
         "📌 Команды:\n"
-        " - /cripto — узнать текущие цены\n"
-        " - /history — получить данные за последние 12 и 24 часа\n"
+        " - 🤑 Узнать цены — показать текущие данные о криптовалютах\n"
         " - /user_count — узнать количество подписанных пользователей",
         reply_markup=reply_markup
     )
 
     add_user(chat_id, first_name=first_name, username=username)
+
 
 def add_user(chat_id, first_name=None, username=None):
     """Добавляет пользователя в файл."""
@@ -237,8 +224,8 @@ async def webhook():
 async def main():
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("cripto", get_crypto))
-    bot_app.add_handler(CommandHandler("history", get_crypto_history))
     bot_app.add_handler(CommandHandler("user_count", user_count))
+    bot_app.add_handler(CallbackQueryHandler(explain_cripto, pattern="^explain_cripto$"))
 
     await bot_app.initialize()
 
