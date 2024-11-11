@@ -105,17 +105,14 @@ async def update_history():
     all_data = load_json(DATA_FILE)
     history = all_data.get("history", [])
 
-    # Получение новых данных
     new_data = await fetch_crypto_data()
     if new_data:
         timestamp = datetime.now().isoformat()
 
-        # Добавляем новую запись и ограничиваем длину истории до 24 записей
         history.append({"timestamp": timestamp, "prices": new_data["prices"]})
         if len(history) > 24:
             history.pop(0)
 
-        # Сохраняем обновленную историю
         all_data["history"] = history
         save_json(DATA_FILE, all_data)
         print("История обновлена:", history)
@@ -130,21 +127,25 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = "🚫 Не удалось получить данные о криптовалюте в данный момент."
     else:
         message = format_crypto_data({current_data["timestamp"]: current_data}, "на текущий момент")
-    await update.message.reply_text(message)
+
+    if update.message:
+        await update.message.reply_text(message)
+    elif update.callback_query:
+        await update.callback_query.message.reply_text(message)
 
 
 async def explain_cripto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Объясняет, что делает кнопка 'Узнать цены', и вызывает функцию получения цен."""
     query = update.callback_query
-    await query.answer()  # Закрыть индикатор ожидания Telegram
+    await query.answer()
 
     explanation = (
         "📊 Эта команда покажет актуальные данные о популярных криптовалютах, "
         "включая их текущие цены в долларах США.\n\n"
         "💡 Для продолжения, пожалуйста, подождите несколько секунд..."
     )
-    await query.edit_message_text(explanation)  # Обновить сообщение с объяснением
-    await get_crypto(update, context)  # Вызов функции для получения данных
+    await query.edit_message_text(explanation)
+    await get_crypto(update, context)
 
 
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -159,19 +160,15 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_list = []
         for chat_id, user_info in users.items():
             try:
-                # Проверяем доступность чата
                 chat = await context.bot.get_chat(chat_id)
                 first_name = user_info.get("first_name", "Неизвестно")
                 username = user_info.get("username", "нет_логина")
                 user_list.append(f" - {first_name} (@{username})")
-                accessible_users[chat_id] = user_info  # Пользователь доступен
+                accessible_users[chat_id] = user_info
             except Exception as e:
                 print(f"Пользователь {chat_id} удален: {e}")
 
-        # Обновляем файл пользователей
         save_json(USERS_FILE, accessible_users)
-
-        # Формируем сообщение
         user_count = len(accessible_users)
         message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
 
@@ -184,7 +181,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_name = update.effective_chat.first_name
     username = update.effective_chat.username
 
-    # Клавиатура с кнопками
     keyboard = [
         [InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")]
     ]
@@ -228,7 +224,6 @@ async def main():
     bot_app.add_handler(CallbackQueryHandler(explain_cripto, pattern="^explain_cripto$"))
 
     await bot_app.initialize()
-
     await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
     await bot_app.start()
 
