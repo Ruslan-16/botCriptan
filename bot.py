@@ -121,31 +121,37 @@ async def update_history():
 
 
 async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возвращает актуальные данные криптовалют."""
+    """Возвращает актуальные данные криптовалют с постоянной клавиатурой."""
     current_data = await fetch_crypto_data()
     if not current_data:
         message = "🚫 Не удалось получить данные о криптовалюте в данный момент."
     else:
         message = format_crypto_data({current_data["timestamp"]: current_data}, "на текущий момент")
 
+    keyboard = [
+        [InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
     if update.message:
-        await update.message.reply_text(message)
+        await update.message.reply_text(message, reply_markup=reply_markup)
     elif update.callback_query:
-        await update.callback_query.message.reply_text(message)
+        await update.callback_query.message.reply_text(message, reply_markup=reply_markup)
 
 
 async def explain_cripto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Объясняет, что делает кнопка 'Узнать цены', и вызывает функцию получения цен."""
+    """Объясняет и показывает данные криптовалют при нажатии кнопки."""
     query = update.callback_query
     await query.answer()
 
     explanation = (
         "📊 Эта команда покажет актуальные данные о популярных криптовалютах, "
         "включая их текущие цены в долларах США.\n\n"
-        "💡 Для продолжения, пожалуйста, подождите несколько секунд..."
+        "💡 Пожалуйста, подождите несколько секунд..."
     )
     await query.edit_message_text(explanation)
     await get_crypto(update, context)
+
 
 
 async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -176,25 +182,26 @@ async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Приветственное сообщение с клавиатурой."""
+    """Приветственное сообщение с постоянной клавиатурой."""
     chat_id = update.effective_chat.id
     first_name = update.effective_chat.first_name
     username = update.effective_chat.username
 
+    # Постоянная клавиатура с кнопками
     keyboard = [
-        [InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")]
+        [InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
         f"👋 Привет, {first_name}! Я помогу тебе отслеживать цены криптовалют.\n"
-        "📌 Команды:\n"
-        " - 🤑 Узнать цены — показать текущие данные о криптовалютах\n"
-        " - /user_count — узнать количество подписанных пользователей",
+        "📌 Нажимай на кнопки ниже, чтобы взаимодействовать со мной!",
         reply_markup=reply_markup
     )
 
+    # Добавляем пользователя в базу
     add_user(chat_id, first_name=first_name, username=username)
+
 
 
 def add_user(chat_id, first_name=None, username=None):
