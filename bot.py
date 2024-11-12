@@ -10,17 +10,25 @@ from flask import Flask, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
+# Применяем patch для поддержки asyncio
 nest_asyncio.apply()
 
+# Загружаем переменные среды
+TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
+CMC_API_KEY = os.getenv("CMC_API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+
+if not TG_BOT_TOKEN or not CMC_API_KEY or not WEBHOOK_URL:
+    raise EnvironmentError("Не заданы обязательные переменные среды: TG_BOT_TOKEN, CMC_API_KEY или WEBHOOK_URL")
+
+# Инициализация Flask
 app = Flask(__name__)
 
-TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN", "7602913247:AAFFy0De4_DSBg_c0V_wiK1TECMtAgMZJA8")
-CMC_API_KEY = os.getenv("CMC_API_KEY", "c923b3dc-cd07-4216-8edc-9d73beb665cc")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://ruslan-16-botcriptan-dd61.twc1.net/webhook")
-
+# Файлы данных
 USERS_FILE = "users.json"
 DATA_FILE = "crypto_data.json"
 
+# Настройка точности для криптовалют
 precision = {
     "BTC": 2, "ETH": 2, "ADA": 3, "PEPE": 6, "SOL": 2, "SUI": 2, 'TON': 2, 'FET': 3,
     'APT': 3, 'AVAX': 2, 'FLOKI': 6, 'TWT': 3, 'ALGO': 3, 'CAKE': 2, '1INCH': 3,
@@ -107,12 +115,9 @@ async def update_history():
 
     new_data = await fetch_crypto_data()
     if new_data:
-        timestamp = datetime.now().isoformat()
-
-        history.append({"timestamp": timestamp, "prices": new_data["prices"]})
+        history.append({"timestamp": datetime.now().isoformat(), "prices": new_data["prices"]})
         if len(history) > 24:
             history.pop(0)
-
         all_data["history"] = history
         save_json(DATA_FILE, all_data)
         print("История обновлена:", history)
@@ -120,8 +125,32 @@ async def update_history():
         print("Не удалось обновить данные криптовалют.")
 
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Приветственное сообщение."""
+    chat_id = update.effective_chat.id
+    first_name = update.effective_chat.first_name
+    username = update.effective_chat.username
+
+    keyboard = [[InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        f"👋 Привет, {first_name}! Я помогу тебе отслеживать цены криптовалют.",
+        reply_markup=reply_markup,
+    )
+    add_user(chat_id, first_name=first_name, username=username)
+
+
+def add_user(chat_id, first_name=None, username=None):
+    """Добавляет пользователя в файл."""
+    users = load_json(USERS_FILE)
+    if chat_id not in users:
+        users[chat_id] = {"first_name": first_name, "username": username, "blocked": False}
+        save_json(USERS_FILE, users)
+
+
 async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возвращает актуальные данные криптовалют с постоянной клавиатурой."""
+    """Возвращает актуальные данные криптовалют."""
     current_data = await fetch_crypto_data()
     if not current_data:
         message = "🚫 Не удалось получить данные о криптовалюте в данный момент."
@@ -129,7 +158,7 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = format_crypto_data({current_data["timestamp"]: current_data}, "на текущий момент")
 
     keyboard = [
-        [InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")],
+        [InlineKeyboardButton("🔄 Обновить данные", callback_data="explain_cripto")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -153,70 +182,9 @@ async def explain_cripto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await get_crypto(update, context)
 
 
-
-async def user_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возвращает количество пользователей, их имена и удаляет недоступных."""
-    users = load_json(USERS_FILE)
-    if not isinstance(users, dict):
-        message = "🚫 Ошибка: файл данных пользователей имеет неверный формат."
-    elif not users:
-        message = "👥 В настоящее время нет зарегистрированных пользователей."
-    else:
-        accessible_users = {}
-        user_list = []
-        for chat_id, user_info in users.items():
-            try:
-                chat = await context.bot.get_chat(chat_id)
-                first_name = user_info.get("first_name", "Неизвестно")
-                username = user_info.get("username", "нет_логина")
-                user_list.append(f" - {first_name} (@{username})")
-                accessible_users[chat_id] = user_info
-            except Exception as e:
-                print(f"Пользователь {chat_id} удален: {e}")
-
-        save_json(USERS_FILE, accessible_users)
-        user_count = len(accessible_users)
-        message = f"👥 Всего пользователей: {user_count}\n" + "\n".join(user_list)
-
-    await update.message.reply_text(message)
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Приветственное сообщение с постоянной клавиатурой."""
-    chat_id = update.effective_chat.id
-    first_name = update.effective_chat.first_name
-    username = update.effective_chat.username
-
-    # Постоянная клавиатура с кнопками
-    keyboard = [
-        [InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(
-        f"👋 Привет, {first_name}! Я помогу тебе отслеживать цены криптовалют.\n"
-        "📌 Нажимай на кнопки ниже, чтобы взаимодействовать со мной!",
-        reply_markup=reply_markup
-    )
-
-    # Добавляем пользователя в базу
-    add_user(chat_id, first_name=first_name, username=username)
-
-
-
-def add_user(chat_id, first_name=None, username=None):
-    """Добавляет пользователя в файл."""
-    users = load_json(USERS_FILE)
-    if chat_id not in users:
-        users[chat_id] = {"first_name": first_name, "username": username, "blocked": False}
-        save_json(USERS_FILE, users)
-
-
-bot_app = Application.builder().token(TG_BOT_TOKEN).build()
-
-
 @app.route('/webhook', methods=['POST'])
 async def webhook():
+    """Обрабатывает вебхук Telegram."""
     data = request.get_json()
     if data:
         update = Update.de_json(data, bot_app.bot)
@@ -225,9 +193,9 @@ async def webhook():
 
 
 async def main():
+    """Запускает бота и настраивает вебхук."""
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("cripto", get_crypto))
-    bot_app.add_handler(CommandHandler("user_count", user_count))
     bot_app.add_handler(CallbackQueryHandler(explain_cripto, pattern="^explain_cripto$"))
 
     await bot_app.initialize()
@@ -236,11 +204,14 @@ async def main():
 
 
 async def run_flask():
+    """Запускает Flask через Hypercorn."""
     config = Config()
     config.bind = ["0.0.0.0:8443"]
     await serve(app, config)
 
 
+# Создаем экземпляр бота
+bot_app = Application.builder().token(TG_BOT_TOKEN).build()
+
 if __name__ == "__main__":
-    nest_asyncio.apply()
     asyncio.run(asyncio.gather(main(), run_flask(), update_history_loop()))
