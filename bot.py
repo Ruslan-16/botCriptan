@@ -9,14 +9,17 @@ import asyncio
 from flask import Flask, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
+from dotenv import load_dotenv
 
 nest_asyncio.apply()
 
 app = Flask(__name__)
 
-TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN", "7602913247:AAFFy0De4_DSBg_c0V_wiK1TECMtAgMZJA8")
-CMC_API_KEY = os.getenv("CMC_API_KEY", "c923b3dc-cd07-4216-8edc-9d73beb665cc")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://ruslan-16-botcriptan-dd61.twc1.net/webhook")
+load_dotenv()
+
+TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
+CMC_API_KEY = os.getenv("CMC_API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 USERS_FILE = "users.json"
 DATA_FILE = "crypto_data.json"
