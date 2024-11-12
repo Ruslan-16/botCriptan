@@ -157,29 +157,37 @@ async def get_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         message = format_crypto_data({current_data["timestamp"]: current_data}, "на текущий момент")
 
+    # Клавиатура с кнопкой обновления
     keyboard = [
         [InlineKeyboardButton("🔄 Обновить данные", callback_data="explain_cripto")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    # Отправляем новое сообщение
     if update.message:
         await update.message.reply_text(message, reply_markup=reply_markup)
-    elif update.callback_query:
-        await update.callback_query.message.reply_text(message, reply_markup=reply_markup)
 
 
 async def explain_cripto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Объясняет и показывает данные криптовалют при нажатии кнопки."""
+    """Обновляет данные криптовалют и отправляет новое сообщение."""
     query = update.callback_query
     await query.answer()
 
-    explanation = (
-        "📊 Эта команда покажет актуальные данные о популярных криптовалютах, "
-        "включая их текущие цены в долларах США.\n\n"
-        "💡 Пожалуйста, подождите несколько секунд..."
-    )
-    await query.edit_message_text(explanation)
-    await get_crypto(update, context)
+    # Получаем актуальные данные и форматируем их
+    current_data = await fetch_crypto_data()
+    if not current_data:
+        message = "🚫 Не удалось получить данные о криптовалюте в данный момент."
+    else:
+        message = format_crypto_data({current_data["timestamp"]: current_data}, "на текущий момент")
+
+    # Клавиатура с кнопкой обновления
+    keyboard = [
+        [InlineKeyboardButton("🔄 Обновить данные", callback_data="explain_cripto")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Отправляем новое сообщение вместо редактирования
+    await query.message.reply_text(message, reply_markup=reply_markup)
 
 
 @app.route('/webhook', methods=['POST'])
