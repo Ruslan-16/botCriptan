@@ -68,10 +68,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_name = update.effective_chat.first_name
     username = update.effective_chat.username
 
+    # Кнопка "Узнать цены" всегда показывается
     keyboard = [
         [InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")],
     ]
-    # Проверка на админа
+    # Кнопка "Пользователи" только для админа
     if chat_id == ADMIN_USER_ID:
         keyboard.append([InlineKeyboardButton("👥 Пользователи", callback_data="show_users")])
 
@@ -96,7 +97,8 @@ async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает список всех пользователей (только для админа)."""
     chat_id = update.effective_chat.id
     if chat_id != ADMIN_USER_ID:
-        return  # Только админ может видеть список пользователей
+        await update.message.reply_text("🚫 У вас нет прав для этого действия.")
+        return
 
     users = load_json(USERS_FILE)
     if not users:
@@ -129,6 +131,45 @@ async def explain_cripto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Отправляем новое сообщение вместо редактирования
     await query.message.reply_text(message, reply_markup=reply_markup)
+
+
+async def fetch_crypto_data():
+    """Получает актуальные данные криптовалют из API CoinMarketCap."""
+    url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+    headers = {"Accepts": "application/json", "X-CMC_PRO_API_KEY": CMC_API_KEY}
+    symbols = list(precision.keys())
+    params = {"symbol": ",".join(symbols), "convert": "USD"}
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers, params=params) as response:
+            if response.status == 200:
+                data = await response.json()
+                return {
+                    "timestamp": datetime.now().isoformat(),
+                    "prices": {
+                        symbol: round(data["data"][symbol]["quote"]["USD"]["price"], precision[symbol])
+                        for symbol in symbols if symbol in data["data"]
+                    }
+                }
+            else:
+                print("Ошибка при получении данных:", response.status, await response.text())
+                return None
+
+
+def format_crypto_data(data, period):
+    """Форматирует данные криптовалют для вывода."""
+    if not data:
+        return f"Данных {period} нет."
+
+    message = f"🕒 Данные о криптовалютах {period}:\n"
+    for ts, prices in data.items():
+        formatted_time = datetime.fromisoformat(ts).strftime('%d.%m.%Y %H:%M:%S')
+        message += f"\n⏱️ Время: {formatted_time}\n"
+        for symbol, price in prices["prices"].items():
+            decimals = precision.get(symbol, 2)
+            message += f"💰 {symbol}: ${price:.{decimals}f}\n"
+        break  # Выводим только одно обновление
+    return message
 
 
 @app.route('/webhook', methods=['POST'])
