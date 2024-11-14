@@ -37,7 +37,8 @@ precision = {
 }
 
 # Идентификатор администратора (замените на свой Telegram ID)
-ADMIN_USER_ID = 413537120
+ADMIN_USER_ID = 413537120  # Укажите ваш Telegram ID
+
 
 # Функция для добавления пользователя с именем
 def add_user(chat_id, first_name=None, username=None):
@@ -46,6 +47,7 @@ def add_user(chat_id, first_name=None, username=None):
     if chat_id not in users:
         users[chat_id] = {"first_name": first_name, "username": username, "blocked": False}
         save_json(USERS_FILE, users)
+
 
 # Функция для загрузки данных из JSON файла
 def load_json(filename):
@@ -60,6 +62,7 @@ def load_json(filename):
         print(f"Ошибка чтения файла {filename}. Возможно, файл поврежден.")
         return {}
 
+
 # Функция для сохранения данных в JSON файл
 def save_json(filename, data):
     """Сохраняет данные в файл JSON."""
@@ -68,6 +71,7 @@ def save_json(filename, data):
             json.dump(data, f)
     except IOError as e:
         print(f"Ошибка записи файла {filename}: {e}")
+
 
 # Форматирование данных криптовалют для вывода
 def format_crypto_data(data, period):
@@ -84,6 +88,7 @@ def format_crypto_data(data, period):
             message += f"💰 {symbol}: ${price:.{decimals}f}\n"
         break  # Выводим только одно обновление
     return message
+
 
 # Функция для получения актуальных данных криптовалют
 async def fetch_crypto_data():
@@ -108,32 +113,27 @@ async def fetch_crypto_data():
                 print("Ошибка при получении данных:", response.status, await response.text())
                 return None
 
-# Функция для подсчета пользователей с кнопкой и пояснением
+
+# Функция для подсчета пользователей
 async def count_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Выводит количество пользователей с пояснением."""
+    """Выводит количество пользователей."""
     if update.effective_user.id != ADMIN_USER_ID:
         await update.message.reply_text("🚫 У вас нет прав для просмотра списка пользователей.")
         return
 
     users = load_json(USERS_FILE)
     user_count = len(users)  # Количество пользователей
-    keyboard = [
-        [InlineKeyboardButton("ℹ️ Пояснение", callback_data="explain_users")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = f"Общее количество пользователей: {user_count}\n\n"
+    message += "Список пользователей:\n"
 
-    await update.message.reply_text(f"Всего пользователей: {user_count}", reply_markup=reply_markup)
+    for chat_id, user_data in users.items():
+        first_name = user_data["first_name"]
+        username = user_data["username"]
+        message += f"👤 {first_name} ({username})\n"
 
-# Функция для объяснения кнопки пояснения
-async def explain_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Объяснение для кнопки пояснения о пользователях."""
-    query = update.callback_query
-    await query.answer()
+    # Отправляем сообщение с пользователями
+    await update.message.reply_text(message)
 
-    message = "📊 Эта команда отображает количество пользователей, которые подписались на бота. Только администратор может просматривать этот список."
-
-    # Отправляем сообщение с пояснением
-    await query.message.reply_text(message)
 
 # Хендлер для удаления пользователя, если он удаляет бота
 async def on_user_left(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -148,6 +148,7 @@ async def on_user_left(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 save_json(USERS_FILE, users)
                 print(f"Пользователь {chat_id} удален из списка, так как покинул чат.")
 
+
 # Инициализация бота
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветственное сообщение."""
@@ -155,7 +156,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_name = update.effective_chat.first_name
     username = update.effective_chat.username
 
-    keyboard = [[InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")]]
+    keyboard = [
+        [InlineKeyboardButton("🤑 Узнать цены", callback_data="explain_cripto")],
+        [InlineKeyboardButton("👤 Пользователи",
+                              callback_data="count_users")] if update.effective_user.id == ADMIN_USER_ID else []
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
@@ -164,7 +169,27 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     add_user(chat_id, first_name=first_name, username=username)
 
-# Инициализация Flask
+
+# Обработчик для кнопки "Узнать цены"
+async def explain_cripto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обновляет данные криптовалют и отправляет новое сообщение."""
+    query = update.callback_query
+    await query.answer()
+
+    current_data = await fetch_crypto_data()
+    if not current_data:
+        message = "🚫 Не удалось получить данные о криптовалюте в данный момент."
+    else:
+        message = format_crypto_data({current_data["timestamp"]: current_data}, "на текущий момент")
+
+    keyboard = [
+        [InlineKeyboardButton("🔄 Обновить данные", callback_data="explain_cripto")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.message.reply_text(message, reply_markup=reply_markup)
+
+
 @app.route('/webhook', methods=['POST'])
 async def webhook():
     """Обрабатывает вебхук Telegram."""
@@ -174,24 +199,25 @@ async def webhook():
         await bot_app.update_queue.put(update)
     return "ok", 200
 
-# Запуск Flask через Hypercorn
+
+async def main():
+    """Запускает бота и настраивает вебхук."""
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CommandHandler("count_users", count_users))
+    bot_app.add_handler(CallbackQueryHandler(explain_cripto, pattern="^explain_cripto$"))
+    bot_app.add_handler(ChatMemberHandler(on_user_left, ChatMemberHandler.MY_CHAT_MEMBER))
+
+    await bot_app.initialize()
+    await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
+    await bot_app.start()
+
+
 async def run_flask():
     """Запускает Flask через Hypercorn."""
     config = Config()
     config.bind = ["0.0.0.0:8443"]
     await serve(app, config)
 
-# Запуск бота и настройка вебхуков
-async def main():
-    """Запускает бота и настраивает вебхук."""
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("count_users", count_users))
-    bot_app.add_handler(CallbackQueryHandler(explain_users, pattern="^explain_users$"))
-    bot_app.add_handler(ChatMemberHandler(on_user_left, chat_member_types=["left"]))
-
-    await bot_app.initialize()
-    await bot_app.bot.set_webhook(f"{WEBHOOK_URL}/webhook")
-    await bot_app.start()
 
 # Создаем экземпляр бота
 bot_app = Application.builder().token(TG_BOT_TOKEN).build()
