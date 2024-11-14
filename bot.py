@@ -110,8 +110,6 @@ async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🚫 У вас нет прав для этого действия.")
         return
 
-    print(f"Админ запрашивает список пользователей: {chat_id}")
-
     # Загружаем пользователей
     users = load_json(USERS_FILE)
 
@@ -127,8 +125,13 @@ async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message += f"👤 {user_info['first_name']} @{user_info.get('username', 'Без имени')}\n"
         print(f"Список пользователей: {message}")
 
-    # Отправляем сообщение с пользователями
-    await update.message.reply_text(message)
+    # Проверка, откуда пришел запрос
+    if update.message:
+        # Это сообщение, на которое можно ответить
+        await update.message.reply_text(message)
+    elif update.callback_query:
+        # Это callback запрос от кнопки
+        await update.callback_query.message.reply_text(message)
 
 
 async def explain_cripto(update: Update, context: ContextTypes.DEFAULT_TYPE):
