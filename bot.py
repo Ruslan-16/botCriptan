@@ -51,6 +51,9 @@ def load_json(filename):
     except json.JSONDecodeError:
         print(f"Ошибка чтения файла {filename}. Возможно, файл поврежден.")
         return {}
+    except Exception as e:
+        print(f"Ошибка при загрузке файла {filename}: {e}")
+        return {}
 
 
 def save_json(filename, data):
@@ -88,26 +91,43 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def add_user(chat_id, first_name=None, username=None):
     """Добавляет пользователя в файл."""
     users = load_json(USERS_FILE)
+
+    # Добавляем отладочное сообщение
+    print(f"Пытаемся добавить пользователя: {first_name} @{username}")
+
     if chat_id not in users:
         users[chat_id] = {"first_name": first_name, "username": username, "blocked": False}
         save_json(USERS_FILE, users)
+        print(f"Новый пользователь добавлен: {first_name} @{username}")
 
 
 async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает список всех пользователей (только для админа)."""
     chat_id = update.effective_chat.id
+
+    # Проверяем, что это админ
     if chat_id != ADMIN_USER_ID:
         await update.message.reply_text("🚫 У вас нет прав для этого действия.")
         return
 
+    print(f"Админ запрашивает список пользователей: {chat_id}")
+
+    # Загружаем пользователей
     users = load_json(USERS_FILE)
+
+    # Добавляем отладочные сообщения
+    print(f"Загруженные пользователи: {users}")
+
     if not users:
         message = "🚫 Нет зарегистрированных пользователей."
+        print("Пользователи не найдены.")
     else:
         message = "Список пользователей:\n"
         for user_id, user_info in users.items():
             message += f"👤 {user_info['first_name']} @{user_info.get('username', 'Без имени')}\n"
+        print(f"Список пользователей: {message}")
 
+    # Отправляем сообщение с пользователями
     await update.message.reply_text(message)
 
 
