@@ -36,7 +36,7 @@ precision = {
     "BTC": 2, "ETH": 2, "ADA": 3, "PEPE": 6, "SOL": 2, "SUI": 2, 'TON': 2, 'FET': 3,
     'APT': 3, 'AVAX': 2, 'FLOKI': 6, 'TWT': 3, 'ALGO': 3, 'CAKE': 2, '1INCH': 3,
     'MANA': 3, 'FLOW': 3, 'EGLD': 2, 'ARB': 3, 'DYDX': 2, 'APEX': 3, 'CRV': 3,
-    'ATOM': 2, 'POL': 3, 'OP': 2, 'SEI': 3
+    'ATOM': 2, 'POL': 3, 'OP': 2, 'SEI': 3,'WEN': 6
 }
 
 
